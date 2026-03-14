@@ -1,6 +1,6 @@
 import {
   addWorkLog as firestoreAddWorkLog,
-  getSlotBySlotId,
+  getSlotsBySlotId,
   updateSlot,
 } from "@/lib/firestore";
 import {
@@ -19,11 +19,12 @@ export async function addWorkLog(params: {
   activity: Activity;
   notes?: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  const slot = await getSlotBySlotId(params.slotId);
-  if (!slot) {
+  const slots = await getSlotsBySlotId(params.slotId);
+  if (slots.length === 0) {
     return { ok: false, error: "Slot not found" };
   }
 
+  const slot = slots[0];
   if (!isValidTransition(slot.state, params.activity)) {
     return { ok: false, error: "Invalid activity for current slot state" };
   }
@@ -53,6 +54,8 @@ export async function addWorkLog(params: {
     slotUpdates.notes = params.notes;
   }
 
-  await updateSlot(slot.id, slotUpdates);
+  for (const s of slots) {
+    await updateSlot(s.id, slotUpdates);
+  }
   return { ok: true };
 }

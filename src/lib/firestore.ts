@@ -100,13 +100,11 @@ export function subscribeWorkLogs(cb: (logs: WorkLog[]) => void): Unsubscribe {
   });
 }
 
-export async function getSlotBySlotId(slotId: string): Promise<Slot | null> {
+export async function getSlotsBySlotId(slotId: string): Promise<Slot[]> {
   const col = collection(db, SLOTS_COL);
   const q = query(col, where("slotId", "==", slotId));
   const snap = await getDocs(q);
-  const first = snap.docs[0];
-  if (!first) return null;
-  return slotFromDoc(first.id, first.data());
+  return snap.docs.map((d) => slotFromDoc(d.id, d.data()));
 }
 
 export async function addWorkLog(entry: {

@@ -79,11 +79,13 @@ export function LookupBySpace() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_SUBSPACES}>All</SelectItem>
-                {subspaces.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
+                {subspaces
+                  .filter((s) => s)
+                  .map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

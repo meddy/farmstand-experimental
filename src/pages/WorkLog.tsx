@@ -298,12 +298,14 @@ export function WorkLog() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredSlots.map((s) => (
-                        <SelectItem key={s.id} value={s.slotId}>
-                          {s.slotId}
-                          {s.state != null ? ` (${s.state})` : ""}
-                        </SelectItem>
-                      ))}
+                      {filteredSlots
+                        .filter((s) => s.slotId)
+                        .map((s) => (
+                          <SelectItem key={s.id} value={s.slotId}>
+                            {s.slotId}
+                            {s.state != null ? ` (${s.state})` : ""}
+                          </SelectItem>
+                        ))}
                       {filteredSlots.length === 0 && (
                         <SelectItem value="__none__" disabled>
                           No slots for this space type

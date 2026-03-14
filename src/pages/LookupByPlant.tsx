@@ -36,12 +36,15 @@ export function LookupByPlant() {
     if (!query.trim()) return [];
 
     const trimmed = query.trim();
-    const byNumber = plantNumberToSlots.get(trimmed);
+    const seen = new Set<string>();
 
+    // 1. Direct plant number lookup
+    const byNumber = plantNumberToSlots.get(trimmed);
     if (byNumber && byNumber.length > 0) {
       return byNumber;
     }
 
+    // 2. Plants collection → slots via plantNumber
     const matchingPlants = plants.filter(
       (p) =>
         p.number.toLowerCase().includes(trimmed.toLowerCase()) ||
@@ -51,10 +54,29 @@ export function LookupByPlant() {
     const slotResults: typeof slots = [];
     for (const plant of matchingPlants) {
       const s = plantNumberToSlots.get(plant.number);
-      if (s) slotResults.push(...s);
+      if (s) {
+        for (const slot of s) {
+          if (!seen.has(slot.id)) {
+            seen.add(slot.id);
+            slotResults.push(slot);
+          }
+        }
+      }
     }
+
+    // 3. Direct slot.plantName search (finds slots with name but no/mismatched plantNumber)
+    const matchingSlots = slots.filter(
+      (s) => s.plantName && fuzzyMatch(trimmed, s.plantName)
+    );
+    for (const slot of matchingSlots) {
+      if (!seen.has(slot.id)) {
+        seen.add(slot.id);
+        slotResults.push(slot);
+      }
+    }
+
     return slotResults;
-  }, [query, plants, plantNumberToSlots]);
+  }, [query, plants, plantNumberToSlots, slots]);
 
   return (
     <Card>

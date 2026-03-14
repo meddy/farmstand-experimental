@@ -48,6 +48,13 @@ export function AppShell() {
         </div>
       </aside>
 
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-card px-4 md:hidden">
+        <h1 className="font-semibold">Farmstand</h1>
+        <Button variant="ghost" size="sm" onClick={signOut}>
+          Sign out
+        </Button>
+      </header>
+
       <main className="flex-1 overflow-auto pb-20 md:pb-0">
         <div className="container mx-auto max-w-2xl p-4">
           <Outlet />
