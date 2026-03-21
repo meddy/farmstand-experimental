@@ -9,6 +9,7 @@ export const SLOT_STATES = [
   "Prepped for Spring",
   "Fallow",
   "Pending Installation",
+  "Seed", // Bin slots storing seeds
 ] as const;
 
 export type SlotState = (typeof SLOT_STATES)[number] | null;
@@ -17,7 +18,7 @@ export const ACTIVITIES = [
   "Plant",
   "Transplant",
   "Fertilize",
-  "Harvest",
+  "Flip",
   "Prep for Spring",
   "Install",
 ] as const;

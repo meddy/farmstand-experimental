@@ -36,9 +36,9 @@ Collections and document structures used by Farmstand Experimental.
 | `notes`        | `string`            | No       | Free-form notes                                |
 | `planChange`   | `Timestamp`         | No       | Planned change date                            |
 
-**SlotState:** `null`, `"Growing"`, `"Prepped for Spring"`, `"Fallow"`, `"Pending Installation"`
+**SlotState:** `null`, `"Growing"`, `"Prepped for Spring"`, `"Fallow"`, `"Pending Installation"`, `"Seed"`
 
-**Activity:** `"Plant"`, `"Transplant"`, `"Fertilize"`, `"Harvest"`, `"Prep for Spring"`, `"Install"`
+**Activity:** `"Plant"`, `"Transplant"`, `"Fertilize"`, `"Flip"`, `"Prep for Spring"`, `"Install"`
 
 ---
 

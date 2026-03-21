@@ -36,18 +36,9 @@ import { addWorkLog } from "@/hooks/useWorkLogs";
 import { usePlants } from "@/hooks/usePlants";
 import { useSlots } from "@/hooks/useSlots";
 import { cn } from "@/lib/utils";
-import type { Activity } from "@/lib/types";
+import { ACTIVITIES, type Activity } from "@/lib/types";
 import { isValidTransition } from "@/lib/transitions";
 import { toast } from "sonner";
-
-const ACTIVITIES: Activity[] = [
-  "Plant",
-  "Transplant",
-  "Fertilize",
-  "Harvest",
-  "Prep for Spring",
-  "Install",
-];
 
 const schema = z.object({
   plantNumber: z.string().min(1, "Plant number or name required"),

@@ -8,7 +8,7 @@ const ACTIVITIES = [
   "Plant",
   "Transplant",
   "Fertilize",
-  "Harvest",
+  "Flip",
   "Prep for Spring",
   "Install",
 ] as const;
@@ -62,10 +62,18 @@ function parseSlotRow(row: Record<string, string>): admin.firestore.DocumentData
   const notesRaw = row.notes?.trim();
   const planChangeRaw = row.planChange?.trim();
 
-  const state = stateRaw === "" ? null : stateRaw || null;
+  let state: string | null = stateRaw === "" ? null : stateRaw || null;
+  if (spaceType === "Bin" && state == null) {
+    state = "Seed";
+  }
   let lastActivity: string | null = null;
   if (lastActivityRaw) {
-    lastActivity = lastActivityRaw === "Planted" ? "Plant" : lastActivityRaw;
+    lastActivity =
+      lastActivityRaw === "Planted"
+        ? "Plant"
+        : lastActivityRaw === "Harvest"
+          ? "Flip"
+          : lastActivityRaw;
     if (!ACTIVITIES.includes(lastActivity as (typeof ACTIVITIES)[number])) {
       lastActivity = null;
     }

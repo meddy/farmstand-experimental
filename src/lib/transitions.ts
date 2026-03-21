@@ -8,7 +8,7 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
   Growing: {
     Transplant: "Fallow",
     Fertilize: "Growing",
-    Harvest: null,
+    Flip: null,
     "Prep for Spring": "Prepped for Spring",
     Plant: null, // impossible
     Install: null, // impossible
@@ -17,7 +17,7 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
     Plant: "Growing",
     Transplant: null,
     Fertilize: null,
-    Harvest: null,
+    Flip: null,
     "Prep for Spring": "Prepped for Spring",
     Install: null,
   },
@@ -25,7 +25,7 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
     Plant: "Growing",
     Transplant: null,
     Fertilize: null,
-    Harvest: null,
+    Flip: null,
     "Prep for Spring": "Prepped for Spring",
     Install: null,
   },
@@ -33,8 +33,16 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
     Plant: "Growing",
     Transplant: null,
     Fertilize: null,
-    Harvest: null,
+    Flip: null,
     "Prep for Spring": "Prepped for Spring",
+    Install: null,
+  },
+  Seed: {
+    Transplant: "Fallow",
+    Plant: "Seed",
+    Fertilize: null,
+    Flip: null,
+    "Prep for Spring": null,
     Install: null,
   },
 };

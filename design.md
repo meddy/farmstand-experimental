@@ -24,7 +24,7 @@ Data Model \- table name followed by details
       2. PlanChange (m/d/yyyy)
 3. Actions
    1. Field (format) \[source\]:
-      1. Activity \["Plant","Transplant","Fertilize","Harvest","Prep for Spring"\]
+      1. Activity \["Plant","Transplant","Fertilize","Flip","Prep for Spring"\]
 
 Each Bucket has 1 Slot, each Tray has 1 Slot , each SeedBin has 15 slots, and each Trough has between 1 and 7 Slots. Therefore, of all SpaceTypes, Troughs and SeedBins each have a Subspace characteristic. Trays have a further
 
@@ -53,12 +53,12 @@ Notes \= null
 
 When the user saves the entry, the corresponding record in the SlotID table should update, as follows.
 
-| State                | Activity \= "Plant" | Activity \= "Transplant" | Activity \= "Fertilize" | Activity \= "Harvest" | Activity \= "Prep for Spring" | Activity \= Install |
-| :------------------- | :------------------ | :----------------------- | :---------------------- | :-------------------- | :---------------------------- | :------------------ |
-| Growing              | impossible          | "Fallow"                 | "Growing"               | null                  | "Prepped for Spring"          | impossible          |
-| Prepped for Spring   | "Growing"           | impossible               | impossible              | impossible            | "Prepped for Spring"          | impossible          |
-| Fallow               | "Growing"           | impossible               | impossible              | impossible            | "Prepped for Spring"          | impossible          |
-| Pending Installation | "Growing"           | impossible               | impossible              | impossible            | "Prepped for Spring"          | "Fallow"            |
+| State                | Activity \= "Plant" | Activity \= "Transplant" | Activity \= "Fertilize" | Activity \= "Flip" | Activity \= "Prep for Spring" | Activity \= Install |
+| :------------------- | :------------------ | :----------------------- | :---------------------- | :----------------- | :---------------------------- | :------------------ |
+| Growing              | impossible          | "Fallow"                 | "Growing"               | null               | "Prepped for Spring"          | impossible          |
+| Prepped for Spring   | "Growing"           | impossible               | impossible              | impossible         | "Prepped for Spring"          | impossible          |
+| Fallow               | "Growing"           | impossible               | impossible              | impossible         | "Prepped for Spring"          | impossible          |
+| Pending Installation | "Growing"           | impossible               | impossible              | impossible         | "Prepped for Spring"          | "Fallow"            |
 
 If State \= "Growing", we need to assign a value from Plants to that slot.
 
