@@ -1,6 +1,6 @@
 # Farmstand Experimental
 
-A garden data logging app for tracking seeds, slots, and activities across buckets, trays, raised beds, and seed bins.
+A garden data logging app for tracking seeds, slots, and activities across buckets, trays, troughs, and seed bins.
 
 ## Tech Stack
 

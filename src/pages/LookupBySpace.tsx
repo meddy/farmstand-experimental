@@ -9,10 +9,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSlots } from "@/hooks/useSlots";
-import type { SpaceType } from "@/lib/types";
-const SPACE_TYPES: SpaceType[] = ["Bucket", "Tray", "RaisedBed", "Bin"];
+import { SPACE_TYPES, type SpaceType } from "@/lib/types";
 
-const HAS_SUBSPACE: SpaceType[] = ["RaisedBed", "Bin"];
+const HAS_SUBSPACE: SpaceType[] = ["Trough", "Bin"];
 const ALL_SUBSPACES = "__all__";
 
 export function LookupBySpace() {

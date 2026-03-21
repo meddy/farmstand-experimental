@@ -16,7 +16,7 @@ Data Model \- table name followed by details
 2. Slots
    1. Mandatory fields (format) \[source\]:
       1. SlotID (text)
-      2. SpaceType \["Bucket","Tray","RaisedBed","Bin"\]
+      2. SpaceType \["Bucket","Tray","Trough","Bin"\]
       3. State \[null,"Growing","Prepped for Spring","Fallow","Pending Installation"\]
       4. LastChange (m/d/yyyy)
    2. Optional fields (format) \[source\]:
@@ -26,15 +26,15 @@ Data Model \- table name followed by details
    1. Field (format) \[source\]:
       1. Activity \["Plant","Transplant","Fertilize","Harvest","Prep for Spring"\]
 
-Each Bucket has 1 Slot, each Tray has 1 Slot , each SeedBin has 15 slots, and each RaisedBed has between 1 and 7 Slots. Therefore, of all SpaceTypes, RaisedBeds and SeedBins each have a Subspace characteristic. Trays have a further
+Each Bucket has 1 Slot, each Tray has 1 Slot , each SeedBin has 15 slots, and each Trough has between 1 and 7 Slots. Therefore, of all SpaceTypes, Troughs and SeedBins each have a Subspace characteristic. Trays have a further
 
-| SpaceType | Subspace                     | SlotIDs                                                                                 |
-| :-------- | :--------------------------- | :-------------------------------------------------------------------------------------- |
-| Bucket    | Does not apply               | "B01","B02"..."B50"                                                                     |
-| Tray      | Does not apply               | "Tray01","Tray02"..."Tray99"                                                            |
-| SeedBin   | "Bin A","Bin B"..."Bin BB"   | "Bin A-01","Bin A-02"..."Bin A-15",,"Bin B-01","Bin B-02"..."Bin B-15"......"Bin BB-15" |
-| RaisedBed | "Bed 01","Bed 02"..."Bed 30" | "Bed A-01","Bin A-02"..."Bin A-15",,"Bin B-01","Bin B-02"..."Bin B-15"......"Bin BB-15" |
-|           |                              |                                                                                         |
+| SpaceType | Subspace                              | SlotIDs                                                                                 |
+| :-------- | :------------------------------------ | :-------------------------------------------------------------------------------------- |
+| Bucket    | Does not apply                        | "B01","B02"..."B50"                                                                     |
+| Tray      | Does not apply                        | "Tray01","Tray02"..."Tray99"                                                            |
+| SeedBin   | "Bin A","Bin B"..."Bin BB"            | "Bin A-01","Bin A-02"..."Bin A-15",,"Bin B-01","Bin B-02"..."Bin B-15"......"Bin BB-15" |
+| Trough    | "Trough 01","Trough 02"..."Trough 30" | "Trough 1-01","Trough 2-01", etc.                                                       |
+|           |                                       |                                                                                         |
 
 Here are the views/functions the app needs on Mobile
 

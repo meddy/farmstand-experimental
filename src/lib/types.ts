@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-export const SPACE_TYPES = ["Bucket", "Tray", "RaisedBed", "Bin"] as const;
+export const SPACE_TYPES = ["Bucket", "Tray", "Trough", "Bin"] as const;
 
 export type SpaceType = (typeof SPACE_TYPES)[number];
 

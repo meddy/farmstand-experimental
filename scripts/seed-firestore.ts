@@ -13,6 +13,16 @@ const ACTIVITIES = [
   "Install",
 ] as const;
 
+/** Strip UTF-8 BOM so csv-parse column names match (e.g. "number" not "\ufeffnumber"). */
+function stripUtf8Bom(text: string): string {
+  return text.replace(/^\uFEFF/, "");
+}
+
+/** Normalize Bed/RaisedBed → Trough in slotId, spaceType, subspace. Apply RaisedBed first. */
+function normalizeTrough(s: string): string {
+  return s.replace(/RaisedBed/gi, "Trough").replace(/\bBED\b/gi, "Trough");
+}
+
 function parseDate(val: string): Date | null {
   const s = val.trim();
   if (!s) return null;
@@ -41,8 +51,8 @@ function parsePlantRow(row: Record<string, string>): admin.firestore.DocumentDat
 }
 
 function parseSlotRow(row: Record<string, string>): admin.firestore.DocumentData {
-  const slotId = String(row.slotId ?? "").trim();
-  const spaceType = String(row.spaceType ?? "Bucket").trim();
+  const slotId = normalizeTrough(String(row.slotId ?? "").trim());
+  const spaceType = normalizeTrough(String(row.spaceType ?? "Bucket").trim());
   const subspaceRaw = row.subspace?.trim();
   const stateRaw = row.state?.trim();
   const lastActivityRaw = row.lastActivity?.trim();
@@ -80,7 +90,7 @@ function parseSlotRow(row: Record<string, string>): admin.firestore.DocumentData
     plantNumber,
     plantName,
   };
-  if (subspaceRaw) doc.subspace = subspaceRaw;
+  if (subspaceRaw) doc.subspace = normalizeTrough(subspaceRaw);
   if (lastActivity) doc.lastActivity = lastActivity;
   if (notesRaw) doc.notes = notesRaw;
 
@@ -159,14 +169,14 @@ async function main(): Promise<void> {
 
   const db = admin.firestore();
 
-  const plantsBuf = readFileSync(resolve(process.cwd(), plants), "utf-8");
+  const plantsBuf = stripUtf8Bom(readFileSync(resolve(process.cwd(), plants), "utf-8"));
   const plantsRows = parse(plantsBuf, {
     columns: true,
     skip_empty_lines: true,
     relax_column_count: true,
   }) as Record<string, string>[];
 
-  const slotsBuf = readFileSync(resolve(process.cwd(), slots), "utf-8");
+  const slotsBuf = stripUtf8Bom(readFileSync(resolve(process.cwd(), slots), "utf-8"));
   const slotsRows = parse(slotsBuf, {
     columns: true,
     skip_empty_lines: true,

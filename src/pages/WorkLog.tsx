@@ -53,7 +53,7 @@ const schema = z.object({
   plantNumber: z.string().min(1, "Plant number or name required"),
   plantName: z.string().min(1, "Plant name required"),
   date: z.date(),
-  spaceType: z.enum(["Bucket", "Tray", "RaisedBed", "Bin"]),
+  spaceType: z.enum(["Bucket", "Tray", "Trough", "Bin"]),
   slotId: z.string().min(1, "Select a slot"),
   activity: z.enum(ACTIVITIES as unknown as [string, ...string[]]),
   notes: z.string().optional(),
@@ -276,7 +276,7 @@ export function WorkLog() {
                     <SelectContent>
                       <SelectItem value="Bucket">Bucket</SelectItem>
                       <SelectItem value="Tray">Tray</SelectItem>
-                      <SelectItem value="RaisedBed">Raised Bed</SelectItem>
+                      <SelectItem value="Trough">Trough</SelectItem>
                       <SelectItem value="Bin">Seed Bin</SelectItem>
                     </SelectContent>
                   </Select>
