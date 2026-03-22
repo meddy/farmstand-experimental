@@ -73,7 +73,7 @@ export function PlantDetail() {
               <WorkLogSections groupedLogs={groupedLogs} />
             )}
           </div>
-          <Link to="/lookup-plant" className="text-sm text-primary hover:underline">
+          <Link to="/lookup" className="text-sm text-primary hover:underline">
             ← Back to lookup
           </Link>
         </div>

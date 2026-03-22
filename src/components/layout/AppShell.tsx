@@ -1,14 +1,13 @@
 import { Outlet } from "react-router-dom";
 import { NavLink } from "react-router-dom";
-import { ClipboardList, Search, Leaf } from "lucide-react";
+import { ClipboardList, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", label: "Work Log", icon: ClipboardList },
-  { to: "/lookup-space", label: "Lookup by Space", icon: Search },
-  { to: "/lookup-plant", label: "Lookup by Plant", icon: Leaf },
+  { to: "/lookup", label: "Lookup Slots", icon: Search },
 ];
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>

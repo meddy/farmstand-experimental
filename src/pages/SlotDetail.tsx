@@ -83,7 +83,7 @@ export function SlotDetail() {
           </p>
         </CardHeader>
         <CardContent>
-          <Link to="/lookup-space" className="text-sm text-primary hover:underline">
+          <Link to="/lookup" className="text-sm text-primary hover:underline">
             ← Back to lookup
           </Link>
         </CardContent>
@@ -118,7 +118,7 @@ export function SlotDetail() {
               <WorkLogSections groupedLogs={groupedLogs} />
             )}
           </div>
-          <Link to="/lookup-space" className="text-sm text-primary hover:underline">
+          <Link to="/lookup" className="text-sm text-primary hover:underline">
             ← Back to lookup
           </Link>
         </div>
