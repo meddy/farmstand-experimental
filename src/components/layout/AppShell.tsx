@@ -1,14 +1,11 @@
 import { Outlet } from "react-router-dom";
 import { NavLink } from "react-router-dom";
-import { ClipboardList, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { to: "/", label: "Work Log", icon: ClipboardList },
-  { to: "/lookup", label: "Lookup Slots", icon: Search },
-];
+const navItems = [{ to: "/", label: "Lookup Slots", icon: Search }];
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(

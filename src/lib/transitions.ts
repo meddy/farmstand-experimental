@@ -5,6 +5,12 @@ import type { Activity, SlotState } from "./types";
  * or null if the transition is invalid.
  */
 const TRANSITIONS: Record<string, Record<string, SlotState>> = {
+  null: {
+    Plant: "Growing",
+    "Prep for Spring": "Prepped for Spring",
+    Transplant: "Fallow",
+    Install: "Pending Installation",
+  },
   Growing: {
     Transplant: "Fallow",
     Fertilize: "Growing",

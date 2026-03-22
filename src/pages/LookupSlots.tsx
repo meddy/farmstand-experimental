@@ -1,7 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { ClipboardList } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -12,9 +14,18 @@ import {
 } from "@/components/ui/select";
 import { useSlots } from "@/hooks/useSlots";
 import { usePlants } from "@/hooks/usePlants";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { plantNumberMatchesPrefix } from "@/lib/utils";
 import { SPACE_TYPES, type SpaceType } from "@/lib/types";
 import type { Slot } from "@/lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { CreateWorkLogForm } from "@/components/CreateWorkLogForm";
 
 const HAS_SUBSPACE: SpaceType[] = ["Trough", "Bin"];
 const ALL_SUBSPACES = "__all__";
@@ -90,6 +101,17 @@ export function LookupSlots() {
   const [plantQuery, setPlantQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("slotId");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [selectedSlotIds, setSelectedSlotIds] = useState<Set<string>>(new Set());
+  const [formOpen, setFormOpen] = useState(false);
+
+  const toggleSlotSelection = useCallback((slotId: string) => {
+    setSelectedSlotIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(slotId)) next.delete(slotId);
+      else next.add(slotId);
+      return next;
+    });
+  }, []);
 
   const subspaces = useMemo(() => {
     if (!spaceType || !HAS_SUBSPACE.includes(spaceType)) return [];
@@ -138,181 +160,262 @@ export function LookupSlots() {
     });
   }, [slots, plants, spaceType, subspace, plantQuery, sortField, sortDirection]);
 
+  const selectedSlots = useMemo(
+    () => filteredSlots.filter((s) => selectedSlotIds.has(s.id)),
+    [filteredSlots, selectedSlotIds]
+  );
+
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
+  const handleFormSuccess = useCallback(() => {
+    setFormOpen(false);
+    setSelectedSlotIds(new Set());
+  }, []);
+
+  const handleFormCancel = useCallback(() => {
+    setFormOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (formOpen && selectedSlots.length === 0) {
+      setFormOpen(false);
+    }
+  }, [formOpen, selectedSlots.length]);
+
   const showSubspace = spaceType !== null && HAS_SUBSPACE.includes(spaceType);
   const showResults = spaceType !== null || plantQuery.trim().length > 0;
 
-  return (
-    <Card>
-      <CardHeader>
-        <h2 className="text-lg font-semibold">Lookup Slots</h2>
-        <p className="text-sm text-muted-foreground">
-          Select a space type or search by plant name/number. Slots appear when at least
-          one filter has a value.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Space Type</label>
-          <Select
-            value={spaceType !== null ? spaceType : ALL_SPACES}
-            onValueChange={(v) => {
-              setSpaceType(v === ALL_SPACES ? null : (v as SpaceType));
-              setSubspace(ALL_SUBSPACES);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_SPACES}>All</SelectItem>
-              {SPACE_TYPES.map((st) => (
-                <SelectItem key={st} value={st}>
-                  {st}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+  const formContent =
+    formOpen && selectedSlots.length > 0 ? (
+      <CreateWorkLogForm
+        selectedSlots={selectedSlots}
+        onSuccess={handleFormSuccess}
+        onCancel={handleFormCancel}
+      />
+    ) : null;
 
-        {showSubspace && (
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-semibold">Lookup Slots</h2>
+          <p className="text-sm text-muted-foreground">
+            Select a space type or search by plant name/number. Slots appear when at
+            least one filter has a value.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Subspace</label>
-            <Select value={subspace} onValueChange={setSubspace}>
+            <label className="text-sm font-medium">Space Type</label>
+            <Select
+              value={spaceType !== null ? spaceType : ALL_SPACES}
+              onValueChange={(v) => {
+                setSpaceType(v === ALL_SPACES ? null : (v as SpaceType));
+                setSubspace(ALL_SUBSPACES);
+              }}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="All subspaces" />
+                <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_SUBSPACES}>All</SelectItem>
-                {subspaces
-                  .filter((s) => s)
-                  .map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
+                <SelectItem value={ALL_SPACES}>All</SelectItem>
+                {SPACE_TYPES.map((st) => (
+                  <SelectItem key={st} value={st}>
+                    {st}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-        )}
 
-        <div className="space-y-2">
-          <label htmlFor="plant-filter" className="text-sm font-medium">
-            Filter by plant name or number
-          </label>
-          <Input
-            id="plant-filter"
-            placeholder="e.g. 92 or Rosemary"
-            value={plantQuery}
-            onChange={(e) => setPlantQuery(e.target.value)}
-          />
-        </div>
-
-        {showResults && filteredSlots.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Sort by</label>
-              <Select
-                value={sortField}
-                onValueChange={(v) => setSortField(v as SortField)}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
+          {showSubspace && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Subspace</label>
+              <Select value={subspace} onValueChange={setSubspace}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All subspaces" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="slotId">Slot name</SelectItem>
-                  <SelectItem value="lastChange">Last change</SelectItem>
+                  <SelectItem value={ALL_SUBSPACES}>All</SelectItem>
+                  {subspaces
+                    .filter((s) => s)
+                    .map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Order</label>
-              <Select
-                value={sortDirection}
-                onValueChange={(v) => setSortDirection(v as SortDirection)}
-              >
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="asc">Ascending</SelectItem>
-                  <SelectItem value="desc">Descending</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          )}
+
+          <div className="space-y-2">
+            <label htmlFor="plant-filter" className="text-sm font-medium">
+              Filter by plant name or number
+            </label>
+            <Input
+              id="plant-filter"
+              placeholder="e.g. 92 or Rosemary"
+              value={plantQuery}
+              onChange={(e) => setPlantQuery(e.target.value)}
+            />
           </div>
-        )}
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Slots</label>
-          <div className="divide-y rounded-md border">
-            {!showResults ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                Select a space type or enter a plant name/number to see slots
+          {showResults && filteredSlots.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Sort by</label>
+                <Select
+                  value={sortField}
+                  onValueChange={(v) => setSortField(v as SortField)}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="slotId">Slot name</SelectItem>
+                    <SelectItem value="lastChange">Last change</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            ) : filteredSlots.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No slots found
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Order</label>
+                <Select
+                  value={sortDirection}
+                  onValueChange={(v) => setSortDirection(v as SortDirection)}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="asc">Ascending</SelectItem>
+                    <SelectItem value="desc">Descending</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            ) : (
-              filteredSlots.map((slot) => {
-                const showLinks = slot.spaceType !== "Bin";
-                return (
-                  <div key={slot.id} className="flex flex-col gap-1 px-4 py-3">
-                    <div className="font-medium">
-                      {showLinks ? (
-                        <Link
-                          to={`/slot/${slot.id}`}
-                          className="text-primary hover:underline"
-                        >
-                          {slot.slotId}
-                        </Link>
-                      ) : (
-                        slot.slotId
-                      )}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {slot.state ?? "—"}
-                      {slot.plantName && (
-                        <span className="ml-2">
-                          •
-                          {showLinks && slot.plantNumber ? (
+            </div>
+          )}
+
+          <hr className="my-4 border-border" />
+
+          {selectedSlots.length > 0 && (
+            <Button onClick={() => setFormOpen(true)} className="w-full gap-2">
+              <ClipboardList className="size-4" />
+              Create work log ({selectedSlots.length} slot
+              {selectedSlots.length !== 1 ? "s" : ""})
+            </Button>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Slots</label>
+            <div className="divide-y rounded-md border">
+              {!showResults ? (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  Select a space type or enter a plant name/number to see slots
+                </div>
+              ) : filteredSlots.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  No slots found
+                </div>
+              ) : (
+                filteredSlots.map((slot) => {
+                  const showLinks = slot.spaceType !== "Bin";
+                  const isSelected = selectedSlotIds.has(slot.id);
+                  return (
+                    <div key={slot.id} className="flex items-start gap-3 px-4 py-3">
+                      <label className="flex shrink-0 items-center pt-0.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSlotSelection(slot.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="size-4 rounded border-input"
+                        />
+                        <span className="sr-only">Select {slot.slotId}</span>
+                      </label>
+                      <div className="min-w-0 flex-1 flex flex-col gap-1">
+                        <div className="font-medium">
+                          {showLinks ? (
                             <Link
-                              to={`/plant/${encodeURIComponent(slot.plantNumber)}`}
-                              className="ml-1 text-primary hover:underline"
+                              to={`/slot/${slot.id}`}
+                              className="text-primary hover:underline"
                             >
-                              {slot.plantName}
-                              {slot.plantNumber && ` (${slot.plantNumber})`}
+                              {slot.slotId}
                             </Link>
                           ) : (
-                            <span className="ml-1">
-                              {slot.plantName}
-                              {slot.plantNumber && ` (${slot.plantNumber})`}
+                            slot.slotId
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {slot.state ?? "—"}
+                          {slot.plantName && (
+                            <span className="ml-2">
+                              •
+                              {showLinks && slot.plantNumber ? (
+                                <Link
+                                  to={`/plant/${encodeURIComponent(slot.plantNumber)}`}
+                                  className="ml-1 text-primary hover:underline"
+                                >
+                                  {slot.plantName}
+                                  {slot.plantNumber && ` (${slot.plantNumber})`}
+                                </Link>
+                              ) : (
+                                <span className="ml-1">
+                                  {slot.plantName}
+                                  {slot.plantNumber && ` (${slot.plantNumber})`}
+                                </span>
+                              )}
                             </span>
                           )}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {slot.subspace && slot.subspace !== "n/a"
-                        ? slot.subspace
-                        : slot.spaceType}
-                    </div>
-                    {slot.lastChange && (
-                      <div className="text-xs text-muted-foreground">
-                        Last change:{" "}
-                        {slot.lastChange.toDate
-                          ? format(slot.lastChange.toDate(), "M/d/yyyy") +
-                            (slot.lastActivity ? ` — ${slot.lastActivity}` : "")
-                          : "—"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {slot.subspace && slot.subspace !== "n/a"
+                            ? slot.subspace
+                            : slot.spaceType}
+                        </div>
+                        {slot.lastChange && (
+                          <div className="text-xs text-muted-foreground">
+                            Last change:{" "}
+                            {slot.lastChange.toDate
+                              ? format(slot.lastChange.toDate(), "M/d/yyyy") +
+                                (slot.lastActivity ? ` — ${slot.lastActivity}` : "")
+                              : "—"}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {formOpen && selectedSlots.length > 0 && isDesktop && (
+        <Dialog open={formOpen} onOpenChange={(open) => !open && handleFormCancel()}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create work log</DialogTitle>
+            </DialogHeader>
+            {formContent}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {formOpen && selectedSlots.length > 0 && !isDesktop && (
+        <Sheet open={formOpen} onOpenChange={(open) => !open && handleFormCancel()}>
+          <SheetContent
+            side="bottom"
+            className="h-[90dvh] max-h-[90dvh] overflow-y-auto rounded-t-xl"
+          >
+            <SheetHeader>
+              <SheetTitle>Create work log</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto pb-safe">{formContent}</div>
+          </SheetContent>
+        </Sheet>
+      )}
+    </>
   );
 }

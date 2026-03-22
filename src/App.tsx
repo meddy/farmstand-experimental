@@ -4,9 +4,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { AppShell } from "@/components/layout/AppShell";
 
-const WorkLog = lazy(() =>
-  import("@/pages/WorkLog").then((m) => ({ default: m.WorkLog }))
-);
 const LookupSlots = lazy(() =>
   import("@/pages/LookupSlots").then((m) => ({ default: m.LookupSlots }))
 );
@@ -30,7 +27,7 @@ function App() {
       >
         <Routes>
           <Route path="/" element={<AppShell />}>
-            <Route index element={<WorkLog />} />
+            <Route index element={<LookupSlots />} />
             <Route path="lookup" element={<LookupSlots />} />
             <Route path="lookup-space" element={<Navigate to="/lookup" replace />} />
             <Route path="lookup-plant" element={<Navigate to="/lookup" replace />} />
