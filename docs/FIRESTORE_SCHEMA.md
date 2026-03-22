@@ -38,7 +38,7 @@ Collections and document structures used by Farmstand Experimental.
 
 **SlotState:** `null`, `"Growing"`, `"Prepped for Spring"`, `"Fallow"`, `"Pending Installation"`, `"Seed"`
 
-**Activity:** `"Plant"`, `"Transplant"`, `"Fertilize"`, `"Flip"`, `"Prep for Spring"`, `"Install"`
+**Activity:** `"Plant"`, `"Transplant"`, `"Fertilize"`, `"Flip"`, `"Pick"`, `"Prep for Spring"`, `"Install"`
 
 ---
 

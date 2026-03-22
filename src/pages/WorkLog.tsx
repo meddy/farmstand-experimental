@@ -338,9 +338,21 @@ export function WorkLog() {
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes (optional)</FormLabel>
+                  <FormLabel>
+                    {form.watch("activity") === "Pick"
+                      ? "Yield (optional)"
+                      : "Notes (optional)"}
+                  </FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={2} placeholder="Free-form notes" />
+                    <Textarea
+                      {...field}
+                      rows={2}
+                      placeholder={
+                        form.watch("activity") === "Pick"
+                          ? "e.g. 2 lb, 3 bunches"
+                          : "Free-form notes"
+                      }
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

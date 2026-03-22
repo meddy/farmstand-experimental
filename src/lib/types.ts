@@ -19,6 +19,7 @@ export const ACTIVITIES = [
   "Transplant",
   "Fertilize",
   "Flip",
+  "Pick",
   "Prep for Spring",
   "Install",
 ] as const;
