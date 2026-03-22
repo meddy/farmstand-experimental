@@ -3,80 +3,65 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSlots } from "@/hooks/useSlots";
 import { usePlants } from "@/hooks/usePlants";
-
-function fuzzyMatch(query: string, text: string): boolean {
-  const q = query.toLowerCase().trim();
-  if (!q) return true;
-  const t = text.toLowerCase();
-  let j = 0;
-  for (let i = 0; i < t.length && j < q.length; i++) {
-    if (t[i] === q[j]) j++;
-  }
-  return j === q.length;
-}
+import { plantNumberMatchesPrefix } from "@/lib/utils";
 
 export function LookupByPlant() {
   const plants = usePlants();
   const slots = useSlots();
   const [query, setQuery] = useState("");
 
-  const plantNumberToSlots = useMemo(() => {
-    const map = new Map<string, typeof slots>();
-    for (const slot of slots) {
-      if (slot.plantNumber) {
-        const list = map.get(slot.plantNumber) ?? [];
-        list.push(slot);
-        map.set(slot.plantNumber, list);
-      }
-    }
-    return map;
-  }, [slots]);
-
   const results = useMemo(() => {
     if (!query.trim()) return [];
 
     const trimmed = query.trim();
     const seen = new Set<string>();
-
-    // 1. Direct plant number lookup
-    const byNumber = plantNumberToSlots.get(trimmed);
-    if (byNumber && byNumber.length > 0) {
-      return byNumber;
-    }
-
-    // 2. Plants collection → slots via plantNumber
-    const matchingPlants = plants.filter(
-      (p) =>
-        p.number.toLowerCase().includes(trimmed.toLowerCase()) ||
-        fuzzyMatch(trimmed, p.name)
-    );
-
     const slotResults: typeof slots = [];
-    for (const plant of matchingPlants) {
-      const s = plantNumberToSlots.get(plant.number);
-      if (s) {
-        for (const slot of s) {
-          if (!seen.has(slot.id)) {
-            seen.add(slot.id);
-            slotResults.push(slot);
-          }
+
+    // 1. Slots with plantNumber that starts with query (prefix match: e.g. "92" → 9200-9299.9)
+    for (const slot of slots) {
+      if (slot.plantNumber && plantNumberMatchesPrefix(trimmed, slot.plantNumber)) {
+        if (!seen.has(slot.id)) {
+          seen.add(slot.id);
+          slotResults.push(slot);
         }
       }
     }
 
-    // 3. Direct slot.plantName search (finds slots with name but no/mismatched plantNumber)
-    const matchingSlots = slots.filter(
-      (s) => s.plantName && fuzzyMatch(trimmed, s.plantName)
+    // 2. Plants whose number starts with query → slots via plantNumber (plants not in slots yet)
+    const matchingPlants = plants.filter((p) =>
+      plantNumberMatchesPrefix(trimmed, p.number)
     );
-    for (const slot of matchingSlots) {
-      if (!seen.has(slot.id)) {
+    for (const plant of matchingPlants) {
+      for (const slot of slots) {
+        if (slot.plantNumber === plant.number && !seen.has(slot.id)) {
+          seen.add(slot.id);
+          slotResults.push(slot);
+        }
+      }
+    }
+
+    // 3. Plant name contains query (exact substring, no fuzzy)
+    const nameLower = trimmed.toLowerCase();
+    const byName = plants.filter((p) => p.name?.toLowerCase().includes(nameLower));
+    for (const plant of byName) {
+      for (const slot of slots) {
+        if (slot.plantNumber === plant.number && !seen.has(slot.id)) {
+          seen.add(slot.id);
+          slotResults.push(slot);
+        }
+      }
+    }
+
+    // 4. Slots with plantName containing query (no plant in collection)
+    for (const slot of slots) {
+      if (slot.plantName?.toLowerCase().includes(nameLower) && !seen.has(slot.id)) {
         seen.add(slot.id);
         slotResults.push(slot);
       }
     }
 
     return slotResults;
-  }, [query, plants, plantNumberToSlots, slots]);
+  }, [query, plants, slots]);
 
   return (
     <Card>
@@ -93,7 +78,7 @@ export function LookupByPlant() {
           </label>
           <Input
             id="plant-search"
-            placeholder="e.g. Rosemary or 9382.1"
+            placeholder="e.g. 92 (matches 9200–9299.9) or Rosemary"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />

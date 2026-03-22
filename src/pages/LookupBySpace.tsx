@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -9,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSlots } from "@/hooks/useSlots";
+import { plantNumberMatchesPrefix } from "@/lib/utils";
 import { SPACE_TYPES, type SpaceType } from "@/lib/types";
 
 const HAS_SUBSPACE: SpaceType[] = ["Trough", "Bin"];
@@ -18,6 +20,7 @@ export function LookupBySpace() {
   const slots = useSlots();
   const [spaceType, setSpaceType] = useState<SpaceType>("Tray");
   const [subspace, setSubspace] = useState<string>(ALL_SUBSPACES);
+  const [plantQuery, setPlantQuery] = useState("");
 
   const subspaces = useMemo(() => {
     if (!HAS_SUBSPACE.includes(spaceType)) return [];
@@ -33,8 +36,14 @@ export function LookupBySpace() {
     if (HAS_SUBSPACE.includes(spaceType) && subspace !== ALL_SUBSPACES) {
       list = list.filter((s) => s.subspace === subspace);
     }
+    if (plantQuery.trim()) {
+      const q = plantQuery.trim();
+      list = list.filter(
+        (s) => s.plantNumber && plantNumberMatchesPrefix(q, s.plantNumber)
+      );
+    }
     return list.toSorted((a, b) => a.slotId.localeCompare(b.slotId));
-  }, [slots, spaceType, subspace]);
+  }, [slots, spaceType, subspace, plantQuery]);
 
   const showSubspace = HAS_SUBSPACE.includes(spaceType);
 
@@ -89,6 +98,18 @@ export function LookupBySpace() {
             </Select>
           </div>
         )}
+
+        <div className="space-y-2">
+          <label htmlFor="plant-search-space" className="text-sm font-medium">
+            Filter by plant #
+          </label>
+          <Input
+            id="plant-search-space"
+            placeholder="e.g. 92 (matches 9200–9299.9)"
+            value={plantQuery}
+            onChange={(e) => setPlantQuery(e.target.value)}
+          />
+        </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Slots</label>

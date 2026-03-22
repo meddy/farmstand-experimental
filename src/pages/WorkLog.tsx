@@ -35,7 +35,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { addWorkLog } from "@/hooks/useWorkLogs";
 import { usePlants } from "@/hooks/usePlants";
 import { useSlots } from "@/hooks/useSlots";
-import { cn } from "@/lib/utils";
+import { cn, plantNumberMatchesPrefix } from "@/lib/utils";
 import { ACTIVITIES, type Activity } from "@/lib/types";
 import { isValidTransition } from "@/lib/transitions";
 import { toast } from "sonner";
@@ -51,16 +51,6 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-
-function fuzzyMatch(query: string, text: string): boolean {
-  const q = query.toLowerCase();
-  const t = text.toLowerCase();
-  let j = 0;
-  for (let i = 0; i < t.length && j < q.length; i++) {
-    if (t[i] === q[j]) j++;
-  }
-  return j === q.length;
-}
 
 export function WorkLog() {
   const plants = usePlants();
@@ -99,8 +89,8 @@ export function WorkLog() {
   const filteredPlants = plantQuery
     ? plants.filter(
         (p) =>
-          p.number.toLowerCase().includes(plantQuery.toLowerCase()) ||
-          fuzzyMatch(plantQuery, p.name)
+          plantNumberMatchesPrefix(plantQuery, p.number) ||
+          (p.name?.toLowerCase().includes(plantQuery.toLowerCase().trim()) ?? false)
       )
     : plants;
 
@@ -165,7 +155,7 @@ export function WorkLog() {
                     <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                       <Command>
                         <CommandInput
-                          placeholder="Search by number or name..."
+                          placeholder="e.g. 92 (matches 9200–9299.9) or name"
                           value={field.value}
                           onValueChange={field.onChange}
                         />
