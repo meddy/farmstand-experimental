@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   addDoc,
   updateDoc,
   getDocs,
@@ -138,4 +139,83 @@ export async function updateSlot(
 ): Promise<void> {
   const ref = doc(db, SLOTS_COL, slotDocId);
   await updateDoc(ref, updates);
+}
+
+export async function getSlotById(slotDocId: string): Promise<Slot | null> {
+  const ref = doc(db, SLOTS_COL, slotDocId);
+  const docSnap = await getDoc(ref);
+  if (!docSnap.exists()) return null;
+  return slotFromDoc(docSnap.id, docSnap.data());
+}
+
+export async function getSlotIdsForSubspace(
+  spaceType: string,
+  subspace: string
+): Promise<string[]> {
+  const col = collection(db, SLOTS_COL);
+  const q = query(
+    col,
+    where("spaceType", "==", spaceType),
+    where("subspace", "==", subspace)
+  );
+  const snap = await getDocs(q);
+  const slotIds = [...new Set(snap.docs.map((d) => (d.data().slotId as string) ?? ""))];
+  return slotIds.filter(Boolean);
+}
+
+export function subscribeWorkLogsByPlantNumber(
+  plantNumber: string,
+  cb: (logs: WorkLog[]) => void
+): Unsubscribe {
+  const col = collection(db, WORK_LOGS_COL);
+  const q = query(
+    col,
+    where("plantNumber", "==", plantNumber),
+    orderBy("date", "desc")
+  );
+  return onSnapshot(q, (snap) => {
+    const logs = snap.docs.map((d) => workLogFromDoc(d.id, d.data()));
+    cb(logs);
+  });
+}
+
+const IN_QUERY_LIMIT = 10;
+
+export function subscribeWorkLogsBySlotIds(
+  slotIds: string[],
+  cb: (logs: WorkLog[]) => void
+): Unsubscribe {
+  if (slotIds.length === 0) {
+    cb([]);
+    return () => {};
+  }
+
+  const unsubs: Unsubscribe[] = [];
+  const allLogs = new Map<string, WorkLog>();
+
+  const emit = () => {
+    const sorted = [...allLogs.values()].sort((a, b) => {
+      const aDate = a.date?.toDate?.() ?? new Date(0);
+      const bDate = b.date?.toDate?.() ?? new Date(0);
+      return bDate.getTime() - aDate.getTime();
+    });
+    cb(sorted);
+  };
+
+  for (let i = 0; i < slotIds.length; i += IN_QUERY_LIMIT) {
+    const chunk = slotIds.slice(i, i + IN_QUERY_LIMIT);
+    const col = collection(db, WORK_LOGS_COL);
+    const q = query(col, where("slotId", "in", chunk));
+    const unsub = onSnapshot(q, (snap) => {
+      for (const d of snap.docs) {
+        allLogs.set(d.id, workLogFromDoc(d.id, d.data()));
+      }
+      emit();
+    });
+    unsubs.push(unsub);
+  }
+
+  return () => {
+    unsubs.forEach((u) => u());
+  };
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSlots } from "@/hooks/useSlots";
@@ -96,22 +97,48 @@ export function LookupByPlant() {
                 No slots found for this plant
               </div>
             ) : (
-              results.map((slot) => (
-                <div key={slot.id} className="flex flex-col gap-1 px-4 py-3">
-                  <div className="font-medium">{slot.slotId}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {slot.subspace && slot.subspace !== "n/a"
-                      ? slot.subspace
-                      : slot.spaceType}
-                  </div>
-                  {slot.plantName && (
-                    <div className="text-sm">
-                      {slot.plantName}
-                      {slot.plantNumber && ` (${slot.plantNumber})`}
+              results.map((slot) => {
+                const showLinks = slot.spaceType !== "Bin";
+                return (
+                  <div key={slot.id} className="flex flex-col gap-1 px-4 py-3">
+                    <div className="font-medium">
+                      {showLinks ? (
+                        <Link
+                          to={`/slot/${slot.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {slot.slotId}
+                        </Link>
+                      ) : (
+                        slot.slotId
+                      )}
                     </div>
-                  )}
-                </div>
-              ))
+                    <div className="text-sm text-muted-foreground">
+                      {slot.subspace && slot.subspace !== "n/a"
+                        ? slot.subspace
+                        : slot.spaceType}
+                    </div>
+                    {slot.plantName && (
+                      <div className="text-sm">
+                        {showLinks && slot.plantNumber ? (
+                          <Link
+                            to={`/plant/${encodeURIComponent(slot.plantNumber)}`}
+                            className="text-primary hover:underline"
+                          >
+                            {slot.plantName}
+                            {` (${slot.plantNumber})`}
+                          </Link>
+                        ) : (
+                          <>
+                            {slot.plantName}
+                            {slot.plantNumber && ` (${slot.plantNumber})`}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

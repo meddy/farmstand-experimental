@@ -13,6 +13,12 @@ const LookupBySpace = lazy(() =>
 const LookupByPlant = lazy(() =>
   import("@/pages/LookupByPlant").then((m) => ({ default: m.LookupByPlant }))
 );
+const PlantDetail = lazy(() =>
+  import("@/pages/PlantDetail").then((m) => ({ default: m.PlantDetail }))
+);
+const SlotDetail = lazy(() =>
+  import("@/pages/SlotDetail").then((m) => ({ default: m.SlotDetail }))
+);
 
 function App() {
   return (
@@ -30,6 +36,8 @@ function App() {
             <Route index element={<WorkLog />} />
             <Route path="lookup-space" element={<LookupBySpace />} />
             <Route path="lookup-plant" element={<LookupByPlant />} />
+            <Route path="plant/:plantNumber" element={<PlantDetail />} />
+            <Route path="slot/:slotDocId" element={<SlotDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

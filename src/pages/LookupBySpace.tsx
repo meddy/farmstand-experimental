@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -119,29 +120,56 @@ export function LookupBySpace() {
                 No slots found
               </div>
             ) : (
-              filteredSlots.map((slot) => (
-                <div key={slot.id} className="flex flex-col gap-1 px-4 py-3">
-                  <div className="font-medium">{slot.slotId}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {slot.state ?? "—"}
-                    {slot.plantName && (
-                      <span className="ml-2">
-                        • {slot.plantName}
-                        {slot.plantNumber && ` (${slot.plantNumber})`}
-                      </span>
+              filteredSlots.map((slot) => {
+                const showLinks = slot.spaceType !== "Bin";
+                return (
+                  <div key={slot.id} className="flex flex-col gap-1 px-4 py-3">
+                    <div className="font-medium">
+                      {showLinks ? (
+                        <Link
+                          to={`/slot/${slot.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {slot.slotId}
+                        </Link>
+                      ) : (
+                        slot.slotId
+                      )}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {slot.state ?? "—"}
+                      {slot.plantName && (
+                        <span className="ml-2">
+                          •{" "}
+                          {showLinks && slot.plantNumber ? (
+                            <Link
+                              to={`/plant/${encodeURIComponent(slot.plantNumber)}`}
+                              className="text-primary hover:underline"
+                            >
+                              {slot.plantName}
+                              {slot.plantNumber && ` (${slot.plantNumber})`}
+                            </Link>
+                          ) : (
+                            <>
+                              {slot.plantName}
+                              {slot.plantNumber && ` (${slot.plantNumber})`}
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    {slot.lastChange && (
+                      <div className="text-xs text-muted-foreground">
+                        Last change:{" "}
+                        {slot.lastChange.toDate
+                          ? format(slot.lastChange.toDate(), "M/d/yyyy") +
+                            (slot.lastActivity ? ` — ${slot.lastActivity}` : "")
+                          : "—"}
+                      </div>
                     )}
                   </div>
-                  {slot.lastChange && (
-                    <div className="text-xs text-muted-foreground">
-                      Last change:{" "}
-                      {slot.lastChange.toDate
-                        ? format(slot.lastChange.toDate(), "M/d/yyyy") +
-                          (slot.lastActivity ? ` — ${slot.lastActivity}` : "")
-                        : "—"}
-                    </div>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
