@@ -31,8 +31,33 @@ const HAS_SUBSPACE: SpaceType[] = ["Trough", "Bin"];
 const ALL_SUBSPACES = "__all__";
 const ALL_SPACES = "__all__";
 
+const LOOKUP_SLOTS_FILTERS_KEY = "lookupSlotsFilters";
+
 type SortField = "slotId" | "lastChange";
 type SortDirection = "asc" | "desc";
+
+type PersistedFilters = {
+  spaceType: SpaceType | string; // "__none__" for null
+  subspace: string;
+  plantQuery: string;
+  sortField: SortField;
+  sortDirection: SortDirection;
+};
+
+const SORT_FIELDS: SortField[] = ["slotId", "lastChange"];
+const SORT_DIRECTIONS: SortDirection[] = ["asc", "desc"];
+
+function loadPersistedFilters(): Partial<PersistedFilters> | null {
+  try {
+    const raw = sessionStorage.getItem(LOOKUP_SLOTS_FILTERS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedFilters;
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 function slotsMatchingPlant(
   slots: Slot[],
@@ -96,11 +121,34 @@ function slotsMatchingPlant(
 export function LookupSlots() {
   const slots = useSlots();
   const plants = usePlants();
-  const [spaceType, setSpaceType] = useState<SpaceType | null>(null);
-  const [subspace, setSubspace] = useState<string>(ALL_SUBSPACES);
-  const [plantQuery, setPlantQuery] = useState("");
-  const [sortField, setSortField] = useState<SortField>("slotId");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [spaceType, setSpaceType] = useState<SpaceType | null>(() => {
+    const p = loadPersistedFilters();
+    if (
+      p?.spaceType &&
+      p.spaceType !== "__none__" &&
+      SPACE_TYPES.includes(p.spaceType as SpaceType)
+    )
+      return p.spaceType as SpaceType;
+    return null;
+  });
+  const [subspace, setSubspace] = useState<string>(() => {
+    const p = loadPersistedFilters();
+    return typeof p?.subspace === "string" ? p.subspace : ALL_SUBSPACES;
+  });
+  const [plantQuery, setPlantQuery] = useState(() => {
+    const p = loadPersistedFilters();
+    return typeof p?.plantQuery === "string" ? p.plantQuery : "";
+  });
+  const [sortField, setSortField] = useState<SortField>(() => {
+    const p = loadPersistedFilters();
+    return p?.sortField && SORT_FIELDS.includes(p.sortField) ? p.sortField : "slotId";
+  });
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    const p = loadPersistedFilters();
+    return p?.sortDirection && SORT_DIRECTIONS.includes(p.sortDirection)
+      ? p.sortDirection
+      : "asc";
+  });
   const [selectedSlotIds, setSelectedSlotIds] = useState<Set<string>>(new Set());
   const [formOpen, setFormOpen] = useState(false);
 
@@ -181,6 +229,19 @@ export function LookupSlots() {
       setFormOpen(false);
     }
   }, [formOpen, selectedSlots.length]);
+
+  useEffect(() => {
+    sessionStorage.setItem(
+      LOOKUP_SLOTS_FILTERS_KEY,
+      JSON.stringify({
+        spaceType: spaceType ?? "__none__",
+        subspace,
+        plantQuery,
+        sortField,
+        sortDirection,
+      })
+    );
+  }, [spaceType, subspace, plantQuery, sortField, sortDirection]);
 
   const showSubspace = spaceType !== null && HAS_SUBSPACE.includes(spaceType);
   const showResults = spaceType !== null || plantQuery.trim().length > 0;

@@ -1,11 +1,15 @@
 import { Outlet } from "react-router-dom";
 import { NavLink } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Plus, Search, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
-const navItems = [{ to: "/", label: "Lookup Slots", icon: Search }];
+const navItems = [
+  { to: "/", label: "Lookup Slots", icon: Search },
+  { to: "/add-slot", label: "Add Slot", icon: Plus },
+  { to: "/add-plant", label: "Add Plant", icon: Sprout },
+];
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -22,7 +26,7 @@ export function AppShell() {
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="hidden border-r bg-card md:flex md:w-56 md:flex-col">
         <div className="flex h-14 items-center border-b px-4">
-          <h1 className="font-semibold">Farmstand</h1>
+          <h1 className="font-semibold">Farmstand EXP</h1>
         </div>
         <nav className="flex-1 space-y-1 p-2">
           {navItems.map(({ to, label, icon: Icon }) => (
@@ -45,7 +49,7 @@ export function AppShell() {
       </aside>
 
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-card px-4 md:hidden">
-        <h1 className="font-semibold">Farmstand</h1>
+        <h1 className="font-semibold">Farmstand EXP</h1>
         <Button variant="ghost" size="sm" onClick={signOut}>
           Sign out
         </Button>
