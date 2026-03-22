@@ -100,8 +100,9 @@ export function LookupByPlant() {
                 <div key={slot.id} className="flex flex-col gap-1 px-4 py-3">
                   <div className="font-medium">{slot.slotId}</div>
                   <div className="text-sm text-muted-foreground">
-                    {slot.spaceType}
-                    {slot.subspace ? ` • ${slot.subspace}` : ""}
+                    {slot.subspace && slot.subspace !== "n/a"
+                      ? slot.subspace
+                      : slot.spaceType}
                   </div>
                   {slot.plantName && (
                     <div className="text-sm">
