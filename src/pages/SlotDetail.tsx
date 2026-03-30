@@ -1,18 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { format } from "date-fns";
 import { toast } from "sonner";
 import { Trash2Icon } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import {
-  getSlotById,
-  getSlotIdsForSubspace,
-  getWorkLogsBySlotId,
-  deleteSlot,
-  deleteWorkLog,
-} from "@/lib/firestore";
+import { WorkLogSections } from "@/components/WorkLogSections";
+import { getSlotById, getSlotIdsForSubspace } from "@/lib/firestore";
+import { cascadeDeleteSlot, deleteWorkLogEntry } from "@/lib/entityCascadeDelete";
 import { useWorkLogsBySlotIds } from "@/hooks/useWorkLogsBySlotIds";
 import { groupWorkLogsByYearQuarter } from "@/lib/utils";
 import type { Slot, WorkLog } from "@/lib/types";
@@ -79,9 +74,7 @@ export function SlotDetail() {
     if (!slot || slot === "loading") return;
     setIsDeleting(true);
     try {
-      const logs = await getWorkLogsBySlotId(slot.slotId, slot.spaceType);
-      await Promise.all(logs.map((log) => deleteWorkLog(log.id)));
-      await deleteSlot(slot.id);
+      await cascadeDeleteSlot(slot);
       toast.success("Slot and work log entries deleted");
       navigate("/lookup");
     } catch (err) {
@@ -95,7 +88,7 @@ export function SlotDetail() {
   async function handleDeleteWorklog(log: WorkLog) {
     setIsDeleting(true);
     try {
-      await deleteWorkLog(log.id);
+      await deleteWorkLogEntry(log.id);
       toast.success("Work log entry deleted");
       setWorklogToDelete(null);
     } catch (err) {
@@ -182,6 +175,7 @@ export function SlotDetail() {
             ) : (
               <WorkLogSections
                 groupedLogs={groupedLogs}
+                anchor="slot"
                 onDeleteWorklog={(log) => {
                   setWorklogToDelete(log);
                   setDeleteWorklogDialogOpen(true);
@@ -224,68 +218,5 @@ export function SlotDetail() {
         isLoading={isDeleting}
       />
     </Card>
-  );
-}
-
-function WorkLogSections({
-  groupedLogs,
-  onDeleteWorklog,
-}: {
-  groupedLogs: Map<string, WorkLog[]>;
-  onDeleteWorklog: (log: WorkLog) => void;
-}) {
-  const sortedKeys = useMemo(
-    () =>
-      [...groupedLogs.keys()].sort((a, b) => {
-        const [aYear, aQ] = a.split("-Q").map(Number);
-        const [bYear, bQ] = b.split("-Q").map(Number);
-        if (aYear !== bYear) return bYear - aYear;
-        return bQ - aQ;
-      }),
-    [groupedLogs]
-  );
-
-  return (
-    <div className="space-y-4">
-      {sortedKeys.map((key) => (
-        <div key={key}>
-          <h4 className="text-xs font-medium text-muted-foreground mb-2">{key}</h4>
-          <ul className="space-y-2 divide-y">
-            {(groupedLogs.get(key) ?? []).map((log) => (
-              <li
-                key={log.id}
-                className="py-2 first:pt-0 flex items-start justify-between gap-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm">
-                    {log.date?.toDate?.() ? format(log.date.toDate(), "M/d/yyyy") : "—"}{" "}
-                    — {log.activity}
-                    {log.slotId && (
-                      <span className="text-muted-foreground ml-1">
-                        {log.plantName} #{log.plantNumber}
-                      </span>
-                    )}
-                  </div>
-                  {log.notes && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {log.notes}
-                    </div>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onDeleteWorklog(log)}
-                  aria-label={`Delete work log: ${log.activity} ${log.date?.toDate?.() ? format(log.date.toDate(), "M/d/yyyy") : ""}`}
-                >
-                  <Trash2Icon className="text-destructive" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
   );
 }

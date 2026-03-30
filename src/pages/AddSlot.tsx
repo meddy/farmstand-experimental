@@ -22,19 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { PlantCombobox } from "@/components/PlantCombobox";
 import { addSlot } from "@/lib/firestore";
-import { usePlants } from "@/hooks/usePlants";
-import { cn, plantNumberMatchesPrefix } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   SPACE_TYPES,
   SLOT_STATES,
@@ -70,8 +62,6 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function AddSlot() {
-  const plants = usePlants();
-  const [plantOpen, setPlantOpen] = useState(false);
   const [planChangeOpen, setPlanChangeOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -92,15 +82,6 @@ export function AddSlot() {
 
   const spaceType = form.watch("spaceType");
   const showSubspace = HAS_SUBSPACE.includes(spaceType as SpaceType);
-
-  const plantQuery = form.watch("plantNumber");
-  const filteredPlants = plantQuery
-    ? plants.filter(
-        (p) =>
-          plantNumberMatchesPrefix(plantQuery, p.number) ||
-          (p.name?.toLowerCase().includes(plantQuery.toLowerCase().trim()) ?? false)
-      )
-    : plants;
 
   const onSubmit = useCallback(
     async (values: FormValues) => {
@@ -273,69 +254,20 @@ export function AddSlot() {
               name="plantNumber"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Plant (optional)</FormLabel>
-                    {field.value && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto py-0 text-xs"
-                        onClick={() => {
-                          form.setValue("plantNumber", "");
-                          form.setValue("plantName", "");
-                        }}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                  <Popover open={plantOpen} onOpenChange={setPlantOpen}>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className={cn(
-                            "w-full justify-between",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value || "Select plant (optional)..."}
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-[var(--radix-popover-trigger-width)] p-0"
-                      align="start"
-                    >
-                      <Command>
-                        <CommandInput
-                          placeholder="e.g. 92 or name"
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        />
-                        <CommandList>
-                          <CommandEmpty>No plant found</CommandEmpty>
-                          <CommandGroup>
-                            {filteredPlants.slice(0, 50).map((p) => (
-                              <CommandItem
-                                key={p.id}
-                                value={p.number}
-                                onSelect={() => {
-                                  form.setValue("plantNumber", p.number);
-                                  form.setValue("plantName", p.name);
-                                  setPlantOpen(false);
-                                }}
-                              >
-                                {p.number} — {p.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                  <FormControl>
+                    <PlantCombobox
+                      optional
+                      label={<FormLabel>Plant (optional)</FormLabel>}
+                      value={{
+                        number: field.value ?? "",
+                        name: form.watch("plantName") ?? "",
+                      }}
+                      onChange={(next) => {
+                        form.setValue("plantNumber", next.number);
+                        form.setValue("plantName", next.name);
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

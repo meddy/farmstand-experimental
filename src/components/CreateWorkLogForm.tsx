@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,22 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { addWorkLog } from "@/hooks/useWorkLogs";
-import { usePlants } from "@/hooks/usePlants";
-import { cn, plantNumberMatchesPrefix } from "@/lib/utils";
+import { PlantCombobox } from "@/components/PlantCombobox";
+import { workLogCommand } from "@/lib/workLogCommand";
+import { cn } from "@/lib/utils";
 import { ACTIVITIES, type Activity } from "@/lib/types";
-import { isValidTransition } from "@/lib/transitions";
-import { getSlotConflict } from "@/lib/workLogValidation";
 import type { Slot } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -50,28 +40,6 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-function getValidActivities(slots: Slot[]): Activity[] {
-  const union = new Set<Activity>();
-  for (const slot of slots) {
-    for (const a of ACTIVITIES) {
-      if (isValidTransition(slot.state ?? null, a as Activity)) {
-        union.add(a as Activity);
-      }
-    }
-  }
-  return Array.from(union);
-}
-
-function getActivityIntersection(slots: Slot[]): Activity[] {
-  if (slots.length === 0) return [];
-  let intersection = getValidActivities([slots[0]]);
-  for (let i = 1; i < slots.length; i++) {
-    const valid = new Set(getValidActivities([slots[i]]).map((a) => a as Activity));
-    intersection = intersection.filter((a) => valid.has(a));
-  }
-  return intersection;
-}
-
 interface CreateWorkLogFormProps {
   selectedSlots: Slot[];
   onSuccess: () => void;
@@ -83,15 +51,12 @@ export function CreateWorkLogForm({
   onSuccess,
   onCancel,
 }: CreateWorkLogFormProps) {
-  const plants = usePlants();
-  const [plantOpen, setPlantOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validActivities = getValidActivities(selectedSlots);
-  const activityIntersection = getActivityIntersection(selectedSlots);
+  const validActivities = workLogCommand.activitiesForSelection(selectedSlots);
   const defaultActivity =
-    activityIntersection.length > 0 ? activityIntersection[0] : validActivities[0];
+    workLogCommand.defaultActivity(selectedSlots) ?? ("Plant" as Activity);
 
   const sharedPlant =
     selectedSlots.length > 0 &&
@@ -124,62 +89,26 @@ export function CreateWorkLogForm({
     }
   }, [selectedSlots, validActivities, form]);
 
-  const plantQuery = form.watch("plantNumber");
-  const filteredPlants = plantQuery
-    ? plants.filter(
-        (p) =>
-          plantNumberMatchesPrefix(plantQuery, p.number) ||
-          (p.name?.toLowerCase().includes(plantQuery.toLowerCase().trim()) ?? false)
-      )
-    : plants;
-
   const onSubmit = useCallback(
     async (values: FormValues) => {
       setIsSubmitting(true);
       try {
-        const conflicts: { slot: Slot; reason: string }[] = [];
-        const validSlots: Slot[] = [];
+        const result = await workLogCommand.commit(selectedSlots, {
+          activity: values.activity as Activity,
+          plantNumber: values.plantNumber,
+          plantName: values.plantName,
+          date: values.date,
+          notes: values.notes,
+        });
 
-        for (const slot of selectedSlots) {
-          const reason = getSlotConflict(
-            slot,
-            values.activity as Activity,
-            values.plantNumber,
-            values.plantName
-          );
-          if (reason) {
-            conflicts.push({ slot, reason });
-          } else {
-            validSlots.push(slot);
-          }
-        }
-
-        const uniqueSlotIds = Array.from(
-          new Map(validSlots.map((s) => [s.slotId, s])).values()
-        );
-
-        const results = await Promise.all(
-          uniqueSlotIds.map((slot) =>
-            addWorkLog({
-              plantNumber: values.plantNumber,
-              plantName: values.plantName,
-              date: values.date,
-              spaceType: slot.spaceType,
-              slotId: slot.slotId,
-              activity: values.activity as Activity,
-              notes: values.notes,
-            })
-          )
-        );
-
-        const failed = results.filter((r) => !r.ok);
-        const created = uniqueSlotIds.length - failed.length;
+        const failed = result.results.filter((r) => !r.ok);
+        const created = result.appliedCount;
 
         if (created > 0) {
           toast.success(
             `Work logs created for ${created} slot(s)${
-              conflicts.length > 0
-                ? `. ${conflicts.length} slot(s) skipped due to conflicts.`
+              result.skipped.length > 0
+                ? `. ${result.skipped.length} slot(s) skipped due to conflicts.`
                 : ""
             }`
           );
@@ -192,12 +121,12 @@ export function CreateWorkLogForm({
           return;
         }
 
-        if (created === 0 && conflicts.length > 0) {
+        if (created === 0 && result.skipped.length > 0) {
           toast.error("No work logs created. Resolve conflicts and try again.");
           return;
         }
 
-        if (created === 0 && conflicts.length === 0) {
+        if (created === 0 && result.skipped.length === 0) {
           toast.error("No slots to update.");
         }
       } finally {
@@ -210,12 +139,17 @@ export function CreateWorkLogForm({
   const activityVal = form.watch("activity") as Activity;
   const plantNum = form.watch("plantNumber");
   const plantNam = form.watch("plantName");
-  const liveConflicts = selectedSlots
-    .map((slot) => {
-      const reason = getSlotConflict(slot, activityVal, plantNum, plantNam);
-      return reason ? { slot, reason } : null;
-    })
-    .filter((c): c is { slot: Slot; reason: string } => c !== null);
+  const dateVal = form.watch("date");
+  const liveConflicts = useMemo(
+    () =>
+      workLogCommand.previewConflicts(selectedSlots, {
+        activity: activityVal,
+        plantNumber: plantNum,
+        plantName: plantNam,
+        date: dateVal,
+      }),
+    [selectedSlots, activityVal, plantNum, plantNam, dateVal]
+  );
 
   return (
     <div className="space-y-4">
@@ -227,49 +161,18 @@ export function CreateWorkLogForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Plant (Number or Name)</FormLabel>
-                <Popover open={plantOpen} onOpenChange={setPlantOpen}>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(
-                          "w-full justify-between",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value || "Select plant..."}
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                    <Command>
-                      <CommandInput
-                        placeholder="e.g. 92 (matches 9200–9299.9) or name"
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      />
-                      <CommandList>
-                        <CommandEmpty>No plant found</CommandEmpty>
-                        <CommandGroup>
-                          {filteredPlants.slice(0, 50).map((p) => (
-                            <CommandItem
-                              key={p.id}
-                              value={p.number}
-                              onSelect={() => {
-                                form.setValue("plantNumber", p.number);
-                                form.setValue("plantName", p.name);
-                                setPlantOpen(false);
-                              }}
-                            >
-                              {p.number} — {p.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <FormControl>
+                  <PlantCombobox
+                    value={{
+                      number: field.value,
+                      name: form.watch("plantName"),
+                    }}
+                    onChange={(next) => {
+                      form.setValue("plantNumber", next.number);
+                      form.setValue("plantName", next.name);
+                    }}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

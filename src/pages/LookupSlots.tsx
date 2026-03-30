@@ -15,9 +15,13 @@ import {
 import { useSlots } from "@/hooks/useSlots";
 import { usePlants } from "@/hooks/usePlants";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { plantNumberMatchesPrefix } from "@/lib/utils";
+import {
+  queryLookupSlots,
+  SLOT_LOOKUP_ALL_SUBSPACES,
+  type SlotLookupSortDirection,
+  type SlotLookupSortField,
+} from "@/lib/slotQueryEngine";
 import { SPACE_TYPES, type SpaceType } from "@/lib/types";
-import type { Slot } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
@@ -27,25 +31,20 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { CreateWorkLogForm } from "@/components/CreateWorkLogForm";
 
-const HAS_SUBSPACE: SpaceType[] = ["Trough", "Bin"];
-const ALL_SUBSPACES = "__all__";
 const ALL_SPACES = "__all__";
 
 const LOOKUP_SLOTS_FILTERS_KEY = "lookupSlotsFilters";
-
-type SortField = "slotId" | "lastChange";
-type SortDirection = "asc" | "desc";
 
 type PersistedFilters = {
   spaceType: SpaceType | string; // "__none__" for null
   subspace: string;
   plantQuery: string;
-  sortField: SortField;
-  sortDirection: SortDirection;
+  sortField: SlotLookupSortField;
+  sortDirection: SlotLookupSortDirection;
 };
 
-const SORT_FIELDS: SortField[] = ["slotId", "lastChange"];
-const SORT_DIRECTIONS: SortDirection[] = ["asc", "desc"];
+const SORT_FIELDS: SlotLookupSortField[] = ["slotId", "lastChange"];
+const SORT_DIRECTIONS: SlotLookupSortDirection[] = ["asc", "desc"];
 
 function loadPersistedFilters(): Partial<PersistedFilters> | null {
   try {
@@ -57,65 +56,6 @@ function loadPersistedFilters(): Partial<PersistedFilters> | null {
   } catch {
     return null;
   }
-}
-
-function slotsMatchingPlant(
-  slots: Slot[],
-  plants: { number: string; name?: string }[],
-  query: string
-): Slot[] {
-  const trimmed = query.trim();
-  if (!trimmed) return [];
-
-  const seen = new Set<string>();
-  const results: Slot[] = [];
-  const nameLower = trimmed.toLowerCase();
-
-  // 1. Slots with plantNumber prefix match
-  for (const slot of slots) {
-    if (
-      slot.plantNumber &&
-      plantNumberMatchesPrefix(trimmed, slot.plantNumber) &&
-      !seen.has(slot.id)
-    ) {
-      seen.add(slot.id);
-      results.push(slot);
-    }
-  }
-
-  // 2. Plants whose number starts with query → slots via plantNumber
-  const matchingPlantsByNumber = plants.filter((p) =>
-    plantNumberMatchesPrefix(trimmed, p.number)
-  );
-  for (const plant of matchingPlantsByNumber) {
-    for (const slot of slots) {
-      if (slot.plantNumber === plant.number && !seen.has(slot.id)) {
-        seen.add(slot.id);
-        results.push(slot);
-      }
-    }
-  }
-
-  // 3. Plant name contains query → slots
-  const byName = plants.filter((p) => p.name?.toLowerCase().includes(nameLower));
-  for (const plant of byName) {
-    for (const slot of slots) {
-      if (slot.plantNumber === plant.number && !seen.has(slot.id)) {
-        seen.add(slot.id);
-        results.push(slot);
-      }
-    }
-  }
-
-  // 4. Slots with plantName containing query (no plant in collection)
-  for (const slot of slots) {
-    if (slot.plantName?.toLowerCase().includes(nameLower) && !seen.has(slot.id)) {
-      seen.add(slot.id);
-      results.push(slot);
-    }
-  }
-
-  return results;
 }
 
 export function LookupSlots() {
@@ -133,17 +73,17 @@ export function LookupSlots() {
   });
   const [subspace, setSubspace] = useState<string>(() => {
     const p = loadPersistedFilters();
-    return typeof p?.subspace === "string" ? p.subspace : ALL_SUBSPACES;
+    return typeof p?.subspace === "string" ? p.subspace : SLOT_LOOKUP_ALL_SUBSPACES;
   });
   const [plantQuery, setPlantQuery] = useState(() => {
     const p = loadPersistedFilters();
     return typeof p?.plantQuery === "string" ? p.plantQuery : "";
   });
-  const [sortField, setSortField] = useState<SortField>(() => {
+  const [sortField, setSortField] = useState<SlotLookupSortField>(() => {
     const p = loadPersistedFilters();
     return p?.sortField && SORT_FIELDS.includes(p.sortField) ? p.sortField : "slotId";
   });
-  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+  const [sortDirection, setSortDirection] = useState<SlotLookupSortDirection>(() => {
     const p = loadPersistedFilters();
     return p?.sortDirection && SORT_DIRECTIONS.includes(p.sortDirection)
       ? p.sortDirection
@@ -161,52 +101,17 @@ export function LookupSlots() {
     });
   }, []);
 
-  const subspaces = useMemo(() => {
-    if (!spaceType || !HAS_SUBSPACE.includes(spaceType)) return [];
-    const set = new Set<string>();
-    slots
-      .filter((s) => s.spaceType === spaceType && s.subspace)
-      .forEach((s) => set.add(s.subspace!));
-    return Array.from(set).toSorted();
-  }, [slots, spaceType]);
-
-  const filteredSlots = useMemo(() => {
-    const hasSpaceFilter = spaceType !== null;
-    const hasPlantFilter = plantQuery.trim().length > 0;
-
-    if (!hasSpaceFilter && !hasPlantFilter) return [];
-
-    let list: Slot[];
-
-    if (hasSpaceFilter && hasPlantFilter) {
-      const spaceFiltered = slots.filter((s) => s.spaceType === spaceType!);
-      const subspaceFiltered =
-        HAS_SUBSPACE.includes(spaceType!) && subspace !== ALL_SUBSPACES
-          ? spaceFiltered.filter((s) => s.subspace === subspace)
-          : spaceFiltered;
-      list = slotsMatchingPlant(subspaceFiltered, plants, plantQuery);
-    } else if (hasSpaceFilter) {
-      list = slots.filter((s) => s.spaceType === spaceType!);
-      if (HAS_SUBSPACE.includes(spaceType!) && subspace !== ALL_SUBSPACES) {
-        list = list.filter((s) => s.subspace === subspace);
-      }
-    } else {
-      list = slotsMatchingPlant(slots, plants, plantQuery);
-    }
-
-    const getLastChangeTime = (s: Slot) => s.lastChange?.toDate?.()?.getTime() ?? 0;
-
-    return [...list].sort((a, b) => {
-      if (sortField === "slotId") {
-        const cmp = a.slotId.localeCompare(b.slotId);
-        return sortDirection === "asc" ? cmp : -cmp;
-      }
-      const aTime = getLastChangeTime(a);
-      const bTime = getLastChangeTime(b);
-      const cmp = aTime - bTime;
-      return sortDirection === "asc" ? cmp : -cmp;
-    });
-  }, [slots, plants, spaceType, subspace, plantQuery, sortField, sortDirection]);
+  const { filteredSlots, subspaceOptions, showSubspace, showResults } = useMemo(
+    () =>
+      queryLookupSlots(slots, plants, {
+        spaceType,
+        subspace,
+        plantQuery,
+        sortField,
+        sortDirection,
+      }),
+    [slots, plants, spaceType, subspace, plantQuery, sortField, sortDirection]
+  );
 
   const selectedSlots = useMemo(
     () => filteredSlots.filter((s) => selectedSlotIds.has(s.id)),
@@ -243,9 +148,6 @@ export function LookupSlots() {
     );
   }, [spaceType, subspace, plantQuery, sortField, sortDirection]);
 
-  const showSubspace = spaceType !== null && HAS_SUBSPACE.includes(spaceType);
-  const showResults = spaceType !== null || plantQuery.trim().length > 0;
-
   const formContent =
     formOpen && selectedSlots.length > 0 ? (
       <CreateWorkLogForm
@@ -272,7 +174,7 @@ export function LookupSlots() {
               value={spaceType !== null ? spaceType : ALL_SPACES}
               onValueChange={(v) => {
                 setSpaceType(v === ALL_SPACES ? null : (v as SpaceType));
-                setSubspace(ALL_SUBSPACES);
+                setSubspace(SLOT_LOOKUP_ALL_SUBSPACES);
               }}
             >
               <SelectTrigger>
@@ -297,8 +199,8 @@ export function LookupSlots() {
                   <SelectValue placeholder="All subspaces" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_SUBSPACES}>All</SelectItem>
-                  {subspaces
+                  <SelectItem value={SLOT_LOOKUP_ALL_SUBSPACES}>All</SelectItem>
+                  {subspaceOptions
                     .filter((s) => s)
                     .map((s) => (
                       <SelectItem key={s} value={s}>
@@ -328,7 +230,7 @@ export function LookupSlots() {
                 <label className="text-sm font-medium">Sort by</label>
                 <Select
                   value={sortField}
-                  onValueChange={(v) => setSortField(v as SortField)}
+                  onValueChange={(v) => setSortField(v as SlotLookupSortField)}
                 >
                   <SelectTrigger className="w-[140px]">
                     <SelectValue />
@@ -343,7 +245,7 @@ export function LookupSlots() {
                 <label className="text-sm font-medium">Order</label>
                 <Select
                   value={sortDirection}
-                  onValueChange={(v) => setSortDirection(v as SortDirection)}
+                  onValueChange={(v) => setSortDirection(v as SlotLookupSortDirection)}
                 >
                   <SelectTrigger className="w-[120px]">
                     <SelectValue />
