@@ -80,3 +80,5 @@ dist/
 .DS_Store
 
 data/
+
+.agents/
