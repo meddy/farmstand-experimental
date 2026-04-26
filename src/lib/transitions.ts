@@ -7,6 +7,8 @@ import type { Activity, SlotState } from "./types";
 const TRANSITIONS: Record<string, Record<string, SlotState>> = {
   null: {
     Plant: "Growing",
+    Fertilize: null,
+    Amend: null,
     "Prep for Spring": "Prepped for Spring",
     Transplant: "Fallow",
     Install: "Pending Installation",
@@ -14,6 +16,7 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
   Growing: {
     Transplant: "Fallow",
     Fertilize: "Growing",
+    Amend: "Growing",
     Flip: null,
     Pick: "Growing",
     "Prep for Spring": "Prepped for Spring",
@@ -23,7 +26,8 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
   "Prepped for Spring": {
     Plant: "Growing",
     Transplant: null,
-    Fertilize: null,
+    Fertilize: "Prepped for Spring",
+    Amend: "Prepped for Spring",
     Flip: null,
     Pick: null,
     "Prep for Spring": "Prepped for Spring",
@@ -32,7 +36,8 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
   Fallow: {
     Plant: "Growing",
     Transplant: null,
-    Fertilize: null,
+    Fertilize: "Fallow",
+    Amend: "Fallow",
     Flip: null,
     Pick: null,
     "Prep for Spring": "Prepped for Spring",
@@ -41,7 +46,8 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
   "Pending Installation": {
     Plant: "Growing",
     Transplant: null,
-    Fertilize: null,
+    Fertilize: "Pending Installation",
+    Amend: "Pending Installation",
     Flip: null,
     Pick: null,
     "Prep for Spring": "Prepped for Spring",
@@ -50,7 +56,6 @@ const TRANSITIONS: Record<string, Record<string, SlotState>> = {
   Seed: {
     Transplant: "Fallow",
     Plant: "Seed",
-    Fertilize: null,
     Flip: null,
     Pick: null,
     "Prep for Spring": null,
@@ -85,4 +90,12 @@ export function requiresPlantAssignment(
 ): boolean {
   const next = getNextState(currentState, activity);
   return next === "Growing";
+}
+
+export function isWorkLogOnlyActivity(
+  currentState: SlotState,
+  activity: Activity
+): boolean {
+  if (activity !== "Fertilize" && activity !== "Amend") return false;
+  return currentState !== "Seed";
 }

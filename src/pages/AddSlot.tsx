@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,33 +35,53 @@ import {
   type Activity,
 } from "@/lib/types";
 import { toast } from "sonner";
+import { useSlots } from "@/hooks/useSlots";
+import {
+  getSubspaceOptionsForSpaceType,
+  suggestNextSlotId,
+} from "@/lib/slotIdSuggestion";
 
 const HAS_SUBSPACE: SpaceType[] = ["Trough", "Bin"];
 
-const schema = z.object({
-  slotId: z.string().min(1, "Slot ID required").trim(),
-  spaceType: z.enum(SPACE_TYPES as unknown as [string, ...string[]]),
-  subspace: z.string().optional(),
-  state: z
-    .union([
-      z.enum(SLOT_STATES as unknown as [string, ...string[]]),
-      z.literal(""),
-      z.null(),
-    ])
-    .transform((v) => (v === "" || v === null ? null : v)),
-  lastActivity: z
-    .union([z.enum(ACTIVITIES as unknown as [string, ...string[]]), z.literal("")])
-    .optional()
-    .transform((v) => (v === "" ? undefined : v)),
-  plantNumber: z.string().optional(),
-  plantName: z.string().optional(),
-  notes: z.string().optional(),
-  planChange: z.date().optional().nullable(),
-});
+const SUBSPACE_UNSELECTED = "__none__";
+
+const schema = z
+  .object({
+    slotId: z.string().min(1, "Slot ID required").trim(),
+    spaceType: z.enum(SPACE_TYPES as unknown as [string, ...string[]]),
+    subspace: z.string().optional(),
+    state: z
+      .union([
+        z.enum(SLOT_STATES as unknown as [string, ...string[]]),
+        z.literal(""),
+        z.null(),
+      ])
+      .transform((v) => (v === "" || v === null ? null : v)),
+    lastActivity: z
+      .union([z.enum(ACTIVITIES as unknown as [string, ...string[]]), z.literal("")])
+      .optional()
+      .transform((v) => (v === "" ? undefined : v)),
+    plantNumber: z.string().optional(),
+    plantName: z.string().optional(),
+    notes: z.string().optional(),
+    planChange: z.date().optional().nullable(),
+  })
+  .superRefine((values, ctx) => {
+    if (HAS_SUBSPACE.includes(values.spaceType as SpaceType)) {
+      if (!values.subspace?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["subspace"],
+          message: "Subspace is required",
+        });
+      }
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
 export function AddSlot() {
+  const slots = useSlots();
   const [planChangeOpen, setPlanChangeOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,7 +101,29 @@ export function AddSlot() {
   });
 
   const spaceType = form.watch("spaceType");
+  const subspace = form.watch("subspace");
   const showSubspace = HAS_SUBSPACE.includes(spaceType as SpaceType);
+
+  const subspaceOptions = useMemo(
+    () => getSubspaceOptionsForSpaceType(slots, spaceType as SpaceType),
+    [slots, spaceType]
+  );
+
+  const suggestedSlotId = useMemo(
+    () => suggestNextSlotId(slots, spaceType as SpaceType, subspace),
+    [slots, spaceType, subspace]
+  );
+
+  useEffect(() => {
+    if (!HAS_SUBSPACE.includes(spaceType as SpaceType)) {
+      form.setValue("subspace", "");
+      return;
+    }
+    const current = form.getValues("subspace")?.trim() ?? "";
+    if (current && !subspaceOptions.includes(current)) {
+      form.setValue("subspace", "");
+    }
+  }, [spaceType, subspaceOptions, form]);
 
   const onSubmit = useCallback(
     async (values: FormValues) => {
@@ -125,27 +167,14 @@ export function AddSlot() {
       <CardHeader>
         <h2 className="text-lg font-semibold">Add Slot</h2>
         <p className="text-sm text-muted-foreground">
-          Create a new slot and save it to Firestore. Required fields: Slot ID, Space
-          Type, and State.
+          Create a new slot and save it to Firestore. Required fields: Space Type, Slot
+          ID, and State. For Bin or Trough, Subspace is required and must match an
+          existing subspace.
         </p>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="slotId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Slot ID</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="e.g. B01, Tray45, Trough 01-03" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <FormField
               control={form.control}
               name="spaceType"
@@ -177,19 +206,62 @@ export function AddSlot() {
                 name="subspace"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Subspace (optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="e.g. Trough 01, Bin A"
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
+                    <FormLabel>Subspace</FormLabel>
+                    <Select
+                      value={field.value?.trim() ? field.value : SUBSPACE_UNSELECTED}
+                      onValueChange={(v) =>
+                        field.onChange(v === SUBSPACE_UNSELECTED ? "" : v)
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select subspace" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={SUBSPACE_UNSELECTED}>
+                          Select subspace
+                        </SelectItem>
+                        {subspaceOptions.map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {subspaceOptions.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No subspaces found yet for this space type. Create slots with a
+                        subspace elsewhere first, or use the seed script.
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
               />
             )}
+
+            <FormField
+              control={form.control}
+              name="slotId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Slot ID</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="e.g. B01, T01-L, A-01, BED 1-01" />
+                  </FormControl>
+                  {suggestedSlotId && (
+                    <p className="text-sm text-muted-foreground">
+                      Suggested next Slot ID:{" "}
+                      <span className="font-medium text-foreground">
+                        {suggestedSlotId}
+                      </span>
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

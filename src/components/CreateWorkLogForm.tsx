@@ -24,6 +24,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { PlantCombobox } from "@/components/PlantCombobox";
+import { usePlants } from "@/hooks/usePlants";
 import { workLogCommand } from "@/lib/workLogCommand";
 import { cn } from "@/lib/utils";
 import { ACTIVITIES, type Activity } from "@/lib/types";
@@ -31,8 +32,8 @@ import type { Slot } from "@/lib/types";
 import { toast } from "sonner";
 
 const schema = z.object({
-  plantNumber: z.string().min(1, "Plant number or name required"),
-  plantName: z.string().min(1, "Plant name required"),
+  plantNumber: z.string().optional(),
+  plantName: z.string().optional(),
   date: z.date(),
   activity: z.enum(ACTIVITIES as unknown as [string, ...string[]]),
   notes: z.string().optional(),
@@ -51,6 +52,7 @@ export function CreateWorkLogForm({
   onSuccess,
   onCancel,
 }: CreateWorkLogFormProps) {
+  const plants = usePlants();
   const [dateOpen, setDateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -93,10 +95,33 @@ export function CreateWorkLogForm({
     async (values: FormValues) => {
       setIsSubmitting(true);
       try {
+        const selectedActivity = values.activity as Activity;
+        const requiresPlant =
+          selectedActivity === "Plant" || selectedActivity === "Transplant";
+        const normalizedPlantNumber = requiresPlant
+          ? values.plantNumber?.trim() || null
+          : null;
+        const normalizedPlantName = requiresPlant
+          ? values.plantName?.trim() || null
+          : null;
+        const hasMatchingPlant =
+          !requiresPlant ||
+          plants.some(
+            (p) => p.number === normalizedPlantNumber && p.name === normalizedPlantName
+          );
+
+        if (!hasMatchingPlant) {
+          form.setError("plantNumber", {
+            type: "validate",
+            message: "Select an existing plant from the list.",
+          });
+          return;
+        }
+
         const result = await workLogCommand.commit(selectedSlots, {
-          activity: values.activity as Activity,
-          plantNumber: values.plantNumber,
-          plantName: values.plantName,
+          activity: selectedActivity,
+          plantNumber: normalizedPlantNumber,
+          plantName: normalizedPlantName,
           date: values.date,
           notes: values.notes,
         });
@@ -133,64 +158,88 @@ export function CreateWorkLogForm({
         setIsSubmitting(false);
       }
     },
-    [selectedSlots, onSuccess]
+    [selectedSlots, onSuccess, plants, form]
   );
 
   const activityVal = form.watch("activity") as Activity;
   const plantNum = form.watch("plantNumber");
   const plantNam = form.watch("plantName");
   const dateVal = form.watch("date");
+  const requiresPlantSelection =
+    activityVal === "Plant" || activityVal === "Transplant";
+  const hasValidRequiredPlantSelection = useMemo(() => {
+    if (!requiresPlantSelection) return true;
+    const number = (plantNum ?? "").trim();
+    const name = (plantNam ?? "").trim();
+    if (!number || !name) return false;
+    return plants.some((p) => p.number === number && p.name === name);
+  }, [requiresPlantSelection, plantNum, plantNam, plants]);
   const liveConflicts = useMemo(
     () =>
       workLogCommand.previewConflicts(selectedSlots, {
         activity: activityVal,
-        plantNumber: plantNum,
-        plantName: plantNam,
+        plantNumber: requiresPlantSelection ? (plantNum ?? null) : null,
+        plantName: requiresPlantSelection ? (plantNam ?? null) : null,
         date: dateVal,
       }),
-    [selectedSlots, activityVal, plantNum, plantNam, dateVal]
+    [selectedSlots, activityVal, requiresPlantSelection, plantNum, plantNam, dateVal]
   );
+
+  useEffect(() => {
+    if (!requiresPlantSelection) {
+      form.clearErrors("plantNumber");
+    }
+  }, [requiresPlantSelection, form]);
 
   return (
     <div className="space-y-4">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="plantNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Plant (Number or Name)</FormLabel>
-                <FormControl>
-                  <PlantCombobox
-                    value={{
-                      number: field.value,
-                      name: form.watch("plantName"),
-                    }}
-                    onChange={(next) => {
-                      form.setValue("plantNumber", next.number);
-                      form.setValue("plantName", next.name);
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {requiresPlantSelection && (
+            <>
+              <FormField
+                control={form.control}
+                name="plantNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plant (Number or Name)</FormLabel>
+                    <FormControl>
+                      <PlantCombobox
+                        value={{
+                          number: field.value ?? "",
+                          name: form.watch("plantName") ?? "",
+                        }}
+                        onChange={(next) => {
+                          form.setValue("plantNumber", next.number);
+                          form.setValue("plantName", next.name);
+                        }}
+                      />
+                    </FormControl>
+                    {!hasValidRequiredPlantSelection && (
+                      <p className="text-sm text-destructive">
+                        Select an existing plant from the list.
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="plantName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Plant Name (auto-filled)</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Rosemary" readOnly />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="plantName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plant Name (auto-filled)</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Rosemary" readOnly />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
 
           <FormField
             control={form.control}

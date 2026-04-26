@@ -13,7 +13,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "seed": "tsx scripts/seed-firestore.ts"
+    "seed": "tsx scripts/seed-firestore.ts",
+    "ensure:trough-slots": "tsx scripts/ensure-trough-slots.ts",
+    "enforce:slot-id-uniqueness": "tsx scripts/enforce-slot-id-uniqueness.ts",
+    "backfill:worklog-plant-base": "tsx scripts/backfill-work-log-plant-base-number.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

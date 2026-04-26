@@ -96,6 +96,30 @@ describe("createWorkLogCommand", () => {
       );
       expect(c.some((x) => x.reason.includes("Plant is required"))).toBe(true);
     });
+
+    it("requires plant for Transplant regardless of state transition", () => {
+      const cmd = createWorkLogCommand(makeDeps());
+      const growingSlot = makeSlot({ id: "1", slotId: "A", state: "Growing" });
+      const c = cmd.previewConflicts(
+        [growingSlot],
+        baseDraft({ activity: "Transplant", plantNumber: "", plantName: "" })
+      );
+      expect(c.some((x) => x.reason.includes("Plant is required"))).toBe(true);
+    });
+
+    it("rejects Fertilize and Amend for Seed slots", () => {
+      const cmd = createWorkLogCommand(makeDeps());
+      const seedSlot = makeSlot({ id: "1", slotId: "A", state: "Seed" });
+
+      const fertilize = cmd.previewConflicts(
+        [seedSlot],
+        baseDraft({ activity: "Fertilize" })
+      );
+      const amend = cmd.previewConflicts([seedSlot], baseDraft({ activity: "Amend" }));
+
+      expect(fertilize[0]?.reason).toMatch(/not valid/i);
+      expect(amend[0]?.reason).toMatch(/not valid/i);
+    });
   });
 
   describe("commit", () => {
@@ -191,6 +215,77 @@ describe("createWorkLogCommand", () => {
       );
     });
 
+    it("rejects transplant without selected plant", async () => {
+      const slotDoc = makeSlot({
+        id: "d1",
+        slotId: "S1",
+        state: "Growing",
+        plantNumber: "5",
+        plantName: "Rose",
+      });
+      const deps = makeDeps({
+        getSlotsBySlotId: vi.fn().mockResolvedValue([slotDoc]),
+      });
+      const cmd = createWorkLogCommand(deps);
+      const result = await cmd.commit(
+        [slotDoc],
+        baseDraft({ activity: "Transplant", plantNumber: null, plantName: null })
+      );
+
+      expect(result.appliedCount).toBe(0);
+      expect(result.failureCount).toBe(0);
+      expect(result.skipped).toHaveLength(1);
+      expect(result.skipped[0].reason).toMatch(/Plant is required/i);
+      expect(result.results).toHaveLength(0);
+      expect(deps.addWorkLog).not.toHaveBeenCalled();
+      expect(deps.updateSlot).not.toHaveBeenCalled();
+    });
+
+    it("uses each slot's existing plant for non-Plant/Transplant bulk logs", async () => {
+      const slotA = makeSlot({
+        id: "d1",
+        slotId: "S1",
+        state: "Growing",
+        plantNumber: "100",
+        plantName: "Rose",
+      });
+      const slotB = makeSlot({
+        id: "d2",
+        slotId: "S2",
+        state: "Growing",
+        plantNumber: "200",
+        plantName: "Mint",
+      });
+      const deps = makeDeps({
+        getSlotsBySlotId: vi.fn().mockImplementation((slotId: string) => {
+          if (slotId === "S1") return Promise.resolve([slotA]);
+          if (slotId === "S2") return Promise.resolve([slotB]);
+          return Promise.resolve([]);
+        }),
+      });
+      const cmd = createWorkLogCommand(deps);
+      const result = await cmd.commit(
+        [slotA, slotB],
+        baseDraft({ activity: "Fertilize", plantNumber: null, plantName: null })
+      );
+
+      expect(result.appliedCount).toBe(2);
+      expect(deps.addWorkLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          slotId: "S1",
+          plantNumber: "100",
+          plantName: "Rose",
+        })
+      );
+      expect(deps.addWorkLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          slotId: "S2",
+          plantNumber: "200",
+          plantName: "Mint",
+        })
+      );
+    });
+
     it("reports failure when re-read finds no slot", async () => {
       const slotDoc = makeSlot({ id: "d1", slotId: "S1", state: null });
       const deps = makeDeps({
@@ -203,6 +298,58 @@ describe("createWorkLogCommand", () => {
       expect(result.failureCount).toBe(1);
       expect(result.results[0].ok).toBe(false);
       expect(deps.addWorkLog).not.toHaveBeenCalled();
+    });
+
+    it("creates plantless Fertilize log for Fallow without slot update", async () => {
+      const slotDoc = makeSlot({
+        id: "d1",
+        slotId: "S1",
+        state: "Fallow",
+      });
+      const deps = makeDeps({
+        getSlotsBySlotId: vi.fn().mockResolvedValue([slotDoc]),
+      });
+      const cmd = createWorkLogCommand(deps);
+      const result = await cmd.commit(
+        [slotDoc],
+        baseDraft({ activity: "Fertilize", plantNumber: null, plantName: null })
+      );
+
+      expect(result.appliedCount).toBe(1);
+      expect(deps.addWorkLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activity: "Fertilize",
+          plantNumber: null,
+          plantName: null,
+        })
+      );
+      expect(deps.updateSlot).not.toHaveBeenCalled();
+    });
+
+    it("creates plantless Amend log for Prepped for Spring without slot update", async () => {
+      const slotDoc = makeSlot({
+        id: "d1",
+        slotId: "S1",
+        state: "Prepped for Spring",
+      });
+      const deps = makeDeps({
+        getSlotsBySlotId: vi.fn().mockResolvedValue([slotDoc]),
+      });
+      const cmd = createWorkLogCommand(deps);
+      const result = await cmd.commit(
+        [slotDoc],
+        baseDraft({ activity: "Amend", plantNumber: null, plantName: null })
+      );
+
+      expect(result.appliedCount).toBe(1);
+      expect(deps.addWorkLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activity: "Amend",
+          plantNumber: null,
+          plantName: null,
+        })
+      );
+      expect(deps.updateSlot).not.toHaveBeenCalled();
     });
   });
 });

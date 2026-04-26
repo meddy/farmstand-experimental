@@ -1,16 +1,26 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Trash2Icon } from "lucide-react";
+import { ClipboardList, PencilIcon, Trash2Icon } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { CreateWorkLogForm } from "@/components/CreateWorkLogForm";
+import { EditSlotForm } from "@/components/EditSlotForm";
 import { WorkLogSections } from "@/components/WorkLogSections";
 import { getSlotById, getSlotIdsForSubspace } from "@/lib/firestore";
 import { cascadeDeleteSlot, deleteWorkLogEntry } from "@/lib/entityCascadeDelete";
 import { useWorkLogsBySlotIds } from "@/hooks/useWorkLogsBySlotIds";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { groupWorkLogsByYearQuarter } from "@/lib/utils";
 import type { Slot, WorkLog } from "@/lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export function SlotDetail() {
   const { slotDocId } = useParams<{ slotDocId: string }>();
@@ -19,8 +29,12 @@ export function SlotDetail() {
   const [slotIds, setSlotIds] = useState<string[]>([]);
   const [deleteSlotDialogOpen, setDeleteSlotDialogOpen] = useState(false);
   const [deleteWorklogDialogOpen, setDeleteWorklogDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [workLogDialogOpen, setWorkLogDialogOpen] = useState(false);
   const [worklogToDelete, setWorklogToDelete] = useState<WorkLog | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   useEffect(() => {
     if (!slotDocId) {
@@ -58,7 +72,7 @@ export function SlotDetail() {
     return () => {
       cancelled = true;
     };
-  }, [slotDocId]);
+  }, [slotDocId, refreshKey]);
 
   const workLogs = useWorkLogsBySlotIds(slotIds);
   const groupedLogs = useMemo(() => groupWorkLogsByYearQuarter(workLogs), [workLogs]);
@@ -154,16 +168,38 @@ export function SlotDetail() {
               </p>
             )}
           </div>
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteSlotDialogOpen(true)}
-            disabled={isDeleting}
-          >
-            <Trash2Icon />
-            Delete slot
-          </Button>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="gap-2"
+              onClick={() => setWorkLogDialogOpen(true)}
+              disabled={isDeleting}
+            >
+              <ClipboardList className="size-4" />
+              Create work log
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEditDialogOpen(true)}
+              disabled={isDeleting}
+            >
+              <PencilIcon />
+              Edit slot
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteSlotDialogOpen(true)}
+              disabled={isDeleting}
+            >
+              <Trash2Icon />
+              Delete slot
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -217,6 +253,92 @@ export function SlotDetail() {
         confirmLabel="Delete"
         isLoading={isDeleting}
       />
+
+      {editDialogOpen && isDesktop && (
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit slot</DialogTitle>
+            </DialogHeader>
+            <EditSlotForm
+              selectedSlots={[slot]}
+              initialState={slot.state}
+              initialPlantMode="set"
+              onCancel={() => setEditDialogOpen(false)}
+              onSuccess={() => {
+                setEditDialogOpen(false);
+                setRefreshKey((v) => v + 1);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {editDialogOpen && !isDesktop && (
+        <Sheet open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <SheetContent
+            side="bottom"
+            className="h-[90dvh] max-h-[90dvh] overflow-y-auto rounded-t-xl"
+          >
+            <SheetHeader>
+              <SheetTitle>Edit slot</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto pb-safe">
+              <EditSlotForm
+                selectedSlots={[slot]}
+                initialState={slot.state}
+                initialPlantMode="set"
+                onCancel={() => setEditDialogOpen(false)}
+                onSuccess={() => {
+                  setEditDialogOpen(false);
+                  setRefreshKey((v) => v + 1);
+                }}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {workLogDialogOpen && isDesktop && (
+        <Dialog open={workLogDialogOpen} onOpenChange={setWorkLogDialogOpen}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create work log</DialogTitle>
+            </DialogHeader>
+            <CreateWorkLogForm
+              selectedSlots={[slot]}
+              onCancel={() => setWorkLogDialogOpen(false)}
+              onSuccess={() => {
+                setWorkLogDialogOpen(false);
+                setRefreshKey((v) => v + 1);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {workLogDialogOpen && !isDesktop && (
+        <Sheet open={workLogDialogOpen} onOpenChange={setWorkLogDialogOpen}>
+          <SheetContent
+            side="bottom"
+            className="h-[90dvh] max-h-[90dvh] overflow-y-auto rounded-t-xl"
+          >
+            <SheetHeader>
+              <SheetTitle>Create work log</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto pb-safe">
+              <CreateWorkLogForm
+                selectedSlots={[slot]}
+                onCancel={() => setWorkLogDialogOpen(false)}
+                onSuccess={() => {
+                  setWorkLogDialogOpen(false);
+                  setRefreshKey((v) => v + 1);
+                }}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </Card>
   );
 }

@@ -18,6 +18,7 @@ export const ACTIVITIES = [
   "Plant",
   "Transplant",
   "Fertilize",
+  "Amend",
   "Flip",
   "Pick",
   "Prep for Spring",
@@ -50,8 +51,9 @@ export interface Slot {
 
 export interface WorkLog {
   id: string;
-  plantNumber: string;
-  plantName: string;
+  plantNumber: string | null;
+  plantBaseNumber?: string | null;
+  plantName: string | null;
   date: Timestamp;
   spaceType: SpaceType;
   slotId: string;

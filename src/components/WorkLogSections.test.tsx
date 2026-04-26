@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Timestamp } from "firebase/firestore";
 import { WorkLogSections } from "@/components/WorkLogSections";
 import type { WorkLog } from "@/lib/types";
@@ -23,6 +23,15 @@ function makeLog(overrides: Partial<WorkLog> & Pick<WorkLog, "id">): WorkLog {
 }
 
 describe("WorkLogSections", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 3, 26, 12, 0, 0));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders quarter headings in descending year-quarter order", () => {
     const map = new Map<string, WorkLog[]>();
     map.set("2024-Q1", [makeLog({ id: "a" })]);
@@ -51,6 +60,7 @@ describe("WorkLogSections", () => {
   });
 
   it("calls onDeleteWorklog when delete is clicked", async () => {
+    vi.useRealTimers();
     const user = userEvent.setup();
     const onDelete = vi.fn();
     const log = makeLog({ id: "del-1" });
@@ -58,8 +68,34 @@ describe("WorkLogSections", () => {
     map.set("2025-Q1", [log]);
     render(<WorkLogSections groupedLogs={map} onDeleteWorklog={onDelete} />);
     await user.click(
-      screen.getByRole("button", { name: /Delete work log: Plant 6\/15\/2025/i })
+      screen.getByRole("button", { name: /Delete work log: Planted 6\/15\/2025/i })
     );
     expect(onDelete).toHaveBeenCalledWith(log);
+  });
+
+  it("renders past activities in past tense", () => {
+    const map = new Map<string, WorkLog[]>();
+    map.set("2026-Q2", [makeLog({ id: "past", date: dateTs(new Date(2026, 3, 25)) })]);
+    render(<WorkLogSections groupedLogs={map} onDeleteWorklog={() => {}} />);
+
+    expect(screen.getByText(/4\/25\/2026 — Planted/)).toBeInTheDocument();
+  });
+
+  it("keeps today's activities in present tense", () => {
+    const map = new Map<string, WorkLog[]>();
+    map.set("2026-Q2", [makeLog({ id: "today", date: dateTs(new Date(2026, 3, 26)) })]);
+    render(<WorkLogSections groupedLogs={map} onDeleteWorklog={() => {}} />);
+
+    expect(screen.getByText(/4\/26\/2026 — Plant/)).toBeInTheDocument();
+  });
+
+  it("renders Amend as Amended for past logs", () => {
+    const map = new Map<string, WorkLog[]>();
+    map.set("2026-Q2", [
+      makeLog({ id: "amend", activity: "Amend", date: dateTs(new Date(2026, 3, 24)) }),
+    ]);
+    render(<WorkLogSections groupedLogs={map} onDeleteWorklog={() => {}} />);
+
+    expect(screen.getByText(/4\/24\/2026 — Amended/)).toBeInTheDocument();
   });
 });

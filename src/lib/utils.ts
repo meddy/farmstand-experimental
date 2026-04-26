@@ -5,11 +5,34 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Returns the portion of a plant number before the first decimal (e.g. "9382.1" -> "9382"). */
+export function getPlantBaseNumber(plantNumber: string): string {
+  const trimmed = plantNumber.trim();
+  if (!trimmed) return "";
+  const [base] = trimmed.split(".", 1);
+  return base ?? "";
+}
+
 /** Plant number matches query when it starts with the query (first digits). e.g. "92" matches 9200-9299.9, not 1092. */
 export function plantNumberMatchesPrefix(query: string, plantNumber: string): boolean {
   const q = query.trim();
   if (!q || !plantNumber) return false;
   return plantNumber.startsWith(q);
+}
+
+/**
+ * Lookup Plants matching:
+ * - query with decimal (instance): match full plant instance by prefix.
+ * - query without decimal (base): match base plant number prefix.
+ */
+export function plantNumberMatchesQuery(query: string, plantNumber: string): boolean {
+  const q = query.trim();
+  const p = plantNumber.trim();
+  if (!q || !p) return false;
+  if (q.includes(".")) {
+    return p.startsWith(q);
+  }
+  return getPlantBaseNumber(p).startsWith(q);
 }
 
 export type WorkLogWithDate = {

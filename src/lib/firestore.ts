@@ -11,16 +11,29 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  runTransaction,
   Timestamp,
   type DocumentData,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import type { Plant, Slot, WorkLog } from "./types";
+import { getPlantBaseNumber } from "./utils";
 
 const PLANTS_COL = "plants";
 const SLOTS_COL = "slots";
 const WORK_LOGS_COL = "workLogs";
+
+function normalizeSlotId(slotId: string): string {
+  const normalized = slotId.trim();
+  if (!normalized) {
+    throw new Error("Slot ID is required");
+  }
+  if (normalized.includes("/")) {
+    throw new Error("Slot ID cannot contain '/'");
+  }
+  return normalized;
+}
 
 function plantFromDoc(id: string, data: DocumentData): Plant {
   return {
@@ -49,10 +62,14 @@ function slotFromDoc(id: string, data: DocumentData): Slot {
 }
 
 function workLogFromDoc(id: string, data: DocumentData): WorkLog {
+  const plantNumber = data.plantNumber ?? null;
+  const fallbackBaseNumber = getPlantBaseNumber(plantNumber ?? "") || null;
+  const plantBaseNumber = data.plantBaseNumber ?? fallbackBaseNumber;
   return {
     id,
-    plantNumber: data.plantNumber ?? "",
-    plantName: data.plantName ?? "",
+    plantNumber,
+    plantBaseNumber,
+    plantName: data.plantName ?? null,
     date: data.date,
     spaceType: data.spaceType ?? "Bucket",
     slotId: data.slotId ?? "",
@@ -128,15 +145,17 @@ export function subscribeWorkLogs(cb: (logs: WorkLog[]) => void): Unsubscribe {
 }
 
 export async function getSlotsBySlotId(slotId: string): Promise<Slot[]> {
-  const col = collection(db, SLOTS_COL);
-  const q = query(col, where("slotId", "==", slotId));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => slotFromDoc(d.id, d.data()));
+  const normalizedSlotId = normalizeSlotId(slotId);
+  const ref = doc(db, SLOTS_COL, normalizedSlotId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return [];
+  return [slotFromDoc(snap.id, snap.data())];
 }
 
 export async function addWorkLog(entry: {
-  plantNumber: string;
-  plantName: string;
+  plantNumber: string | null;
+  plantBaseNumber?: string | null;
+  plantName: string | null;
   date: Date;
   spaceType: string;
   slotId: string;
@@ -144,8 +163,11 @@ export async function addWorkLog(entry: {
   notes?: string;
 }): Promise<string> {
   const col = collection(db, WORK_LOGS_COL);
+  const fallbackBaseNumber = getPlantBaseNumber(entry.plantNumber ?? "") || null;
+  const resolvedBaseNumber = entry.plantBaseNumber ?? fallbackBaseNumber;
   const ref = await addDoc(col, {
     ...entry,
+    plantBaseNumber: resolvedBaseNumber,
     date: entry.date,
     createdAt: serverTimestamp(),
   });
@@ -164,24 +186,31 @@ export type SlotCreatePayload = {
   planChange?: Date;
 };
 
-export async function addSlot(doc: SlotCreatePayload): Promise<string> {
-  const col = collection(db, SLOTS_COL);
+export async function addSlot(slot: SlotCreatePayload): Promise<string> {
+  const normalizedSlotId = normalizeSlotId(slot.slotId);
   const data: Record<string, unknown> = {
-    slotId: doc.slotId.trim(),
-    spaceType: doc.spaceType,
-    state: doc.state,
+    slotId: normalizedSlotId,
+    spaceType: slot.spaceType,
+    state: slot.state,
     lastChange: serverTimestamp(),
-    plantNumber: doc.plantNumber?.trim() || null,
-    plantName: doc.plantName?.trim() || null,
+    plantNumber: slot.plantNumber?.trim() || null,
+    plantName: slot.plantName?.trim() || null,
   };
-  if (doc.subspace?.trim()) data.subspace = doc.subspace.trim();
-  if (doc.lastActivity) data.lastActivity = doc.lastActivity;
-  if (doc.notes?.trim()) data.notes = doc.notes.trim();
-  if (doc.planChange) {
-    data.planChange = Timestamp.fromDate(doc.planChange);
+  if (slot.subspace?.trim()) data.subspace = slot.subspace.trim();
+  if (slot.lastActivity) data.lastActivity = slot.lastActivity;
+  if (slot.notes?.trim()) data.notes = slot.notes.trim();
+  if (slot.planChange) {
+    data.planChange = Timestamp.fromDate(slot.planChange);
   }
-  const ref = await addDoc(col, data);
-  return ref.id;
+  await runTransaction(db, async (transaction) => {
+    const slotDocRef = doc(db, SLOTS_COL, normalizedSlotId);
+    const existing = await transaction.get(slotDocRef);
+    if (existing.exists()) {
+      throw new Error(`Slot ID '${normalizedSlotId}' already exists`);
+    }
+    transaction.set(slotDocRef, data);
+  });
+  return normalizedSlotId;
 }
 
 export async function updateSlot(
@@ -268,6 +297,74 @@ export function subscribeWorkLogsByPlantNumber(
     const logs = snap.docs.map((d) => workLogFromDoc(d.id, d.data()));
     cb(logs);
   });
+}
+
+export function subscribeWorkLogsByPlantBaseNumber(
+  plantBaseNumber: string,
+  cb: (logs: WorkLog[]) => void
+): Unsubscribe {
+  const col = collection(db, WORK_LOGS_COL);
+  const q = query(
+    col,
+    where("plantBaseNumber", "==", plantBaseNumber),
+    orderBy("date", "desc")
+  );
+  return onSnapshot(q, (snap) => {
+    const logs = snap.docs.map((d) => workLogFromDoc(d.id, d.data()));
+    cb(logs);
+  });
+}
+
+export function subscribeWorkLogsByPlantBaseNumbers(
+  plantBaseNumbers: string[],
+  cb: (logs: WorkLog[]) => void
+): Unsubscribe {
+  const normalizedBaseNumbers = Array.from(
+    new Set(plantBaseNumbers.map((value) => value.trim()).filter(Boolean))
+  );
+  if (normalizedBaseNumbers.length === 0) {
+    cb([]);
+    return () => {};
+  }
+
+  const unsubs: Unsubscribe[] = [];
+  const allLogs = new Map<string, WorkLog>();
+
+  const emit = () => {
+    const sorted = [...allLogs.values()].sort((a, b) => {
+      const aDate = a.date?.toDate?.() ?? new Date(0);
+      const bDate = b.date?.toDate?.() ?? new Date(0);
+      return bDate.getTime() - aDate.getTime();
+    });
+    cb(sorted);
+  };
+
+  for (let i = 0; i < normalizedBaseNumbers.length; i += IN_QUERY_LIMIT) {
+    const chunk = normalizedBaseNumbers.slice(i, i + IN_QUERY_LIMIT);
+    const chunkBaseNumberSet = new Set(chunk);
+    const col = collection(db, WORK_LOGS_COL);
+    const q = query(
+      col,
+      where("plantBaseNumber", "in", chunk),
+      orderBy("date", "desc")
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const toDelete: string[] = [];
+      for (const [id, log] of allLogs) {
+        if (chunkBaseNumberSet.has(log.plantBaseNumber ?? "")) toDelete.push(id);
+      }
+      for (const id of toDelete) allLogs.delete(id);
+      for (const d of snap.docs) {
+        allLogs.set(d.id, workLogFromDoc(d.id, d.data()));
+      }
+      emit();
+    });
+    unsubs.push(unsub);
+  }
+
+  return () => {
+    unsubs.forEach((u) => u());
+  };
 }
 
 const IN_QUERY_LIMIT = 10;

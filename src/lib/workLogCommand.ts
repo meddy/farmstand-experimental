@@ -7,14 +7,16 @@ import { ACTIVITIES, type Activity, type Slot } from "@/lib/types";
 import {
   getNextState,
   isValidTransition,
+  isWorkLogOnlyActivity,
   requiresPlantAssignment,
 } from "@/lib/transitions";
 import { getSlotConflict } from "@/lib/workLogValidation";
+import { getPlantBaseNumber } from "@/lib/utils";
 
 export interface WorkLogDraft {
   activity: Activity;
-  plantNumber: string;
-  plantName: string;
+  plantNumber: string | null;
+  plantName: string | null;
   date: Date;
   notes?: string;
 }
@@ -33,8 +35,9 @@ export interface CommitResult {
 }
 
 export type WorkLogWritePayload = {
-  plantNumber: string;
-  plantName: string;
+  plantNumber: string | null;
+  plantBaseNumber?: string | null;
+  plantName: string | null;
   date: Date;
   spaceType: string;
   slotId: string;
@@ -55,6 +58,10 @@ export interface WorkLogCommandModule {
   defaultActivity(slots: Slot[]): Activity | undefined;
   previewConflicts(slots: Slot[], draft: WorkLogDraft): SlotConflict[];
   commit(slots: Slot[], draft: WorkLogDraft): Promise<CommitResult>;
+}
+
+function requiresExplicitPlant(activity: Activity): boolean {
+  return activity === "Plant" || activity === "Transplant";
 }
 
 function activitiesUnion(slots: Slot[]): Activity[] {
@@ -101,16 +108,27 @@ async function executeWorkLogForSlotId(
   }
 
   const nextState = getNextState(slot.state, draft.activity);
+  const logPlantNumber = requiresExplicitPlant(draft.activity)
+    ? draft.plantNumber
+    : slot.plantNumber;
+  const logPlantName = requiresExplicitPlant(draft.activity)
+    ? draft.plantName
+    : slot.plantName;
 
   await deps.addWorkLog({
-    plantNumber: draft.plantNumber,
-    plantName: draft.plantName,
+    plantNumber: logPlantNumber,
+    plantBaseNumber: getPlantBaseNumber(logPlantNumber ?? "") || null,
+    plantName: logPlantName,
     date: draft.date,
     spaceType: slot.spaceType,
     slotId,
     activity: draft.activity,
     notes: draft.notes,
   });
+
+  if (isWorkLogOnlyActivity(slot.state, draft.activity)) {
+    return { ok: true };
+  }
 
   const slotUpdates: SlotUpdatePatch = {
     state: nextState,

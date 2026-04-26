@@ -7,6 +7,9 @@ import { AppShell } from "@/components/layout/AppShell";
 const LookupSlots = lazy(() =>
   import("@/pages/LookupSlots").then((m) => ({ default: m.LookupSlots }))
 );
+const LookupPlants = lazy(() =>
+  import("@/pages/LookupPlants").then((m) => ({ default: m.LookupPlants }))
+);
 const AddSlot = lazy(() =>
   import("@/pages/AddSlot").then((m) => ({ default: m.AddSlot }))
 );
@@ -35,10 +38,10 @@ function App() {
           <Route path="/" element={<AppShell />}>
             <Route index element={<LookupSlots />} />
             <Route path="lookup" element={<LookupSlots />} />
+            <Route path="lookup-plant" element={<LookupPlants />} />
             <Route path="add-slot" element={<AddSlot />} />
             <Route path="add-plant" element={<AddPlant />} />
             <Route path="lookup-space" element={<Navigate to="/lookup" replace />} />
-            <Route path="lookup-plant" element={<Navigate to="/lookup" replace />} />
             <Route path="plant/:plantNumber" element={<PlantDetail />} />
             <Route path="slot/:slotDocId" element={<SlotDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />

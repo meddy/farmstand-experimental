@@ -1,12 +1,13 @@
 import { Outlet } from "react-router-dom";
 import { NavLink } from "react-router-dom";
-import { Plus, Search, Sprout } from "lucide-react";
+import { Leaf, Plus, Search, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", label: "Lookup Slots", icon: Search },
+  { to: "/lookup-plant", label: "Lookup Plants", icon: Leaf },
   { to: "/add-slot", label: "Add Slot", icon: Plus },
   { to: "/add-plant", label: "Add Plant", icon: Sprout },
 ];

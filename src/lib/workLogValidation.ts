@@ -1,6 +1,6 @@
 import { ACTIVITIES, type Activity } from "./types";
 import type { Slot } from "./types";
-import { isValidTransition, requiresPlantAssignment } from "./transitions";
+import { isValidTransition, isWorkLogOnlyActivity } from "./transitions";
 
 /**
  * Returns a human-readable conflict reason if the slot cannot receive the work log,
@@ -9,8 +9,8 @@ import { isValidTransition, requiresPlantAssignment } from "./transitions";
 export function getSlotConflict(
   slot: Slot,
   activity: Activity,
-  plantNumber: string,
-  plantName: string
+  plantNumber: string | null,
+  plantName: string | null
 ): string | null {
   if (!isValidTransition(slot.state, activity)) {
     const validActivities = ACTIVITIES.filter((a) =>
@@ -20,7 +20,11 @@ export function getSlotConflict(
     return `Activity "${activity}" is not valid for slot state "${slot.state}". Valid activities: ${validStr}.`;
   }
 
-  if (requiresPlantAssignment(slot.state, activity)) {
+  if (isWorkLogOnlyActivity(slot.state, activity)) {
+    return null;
+  }
+
+  if (activity === "Plant" || activity === "Transplant") {
     const plantTrimmed = plantNumber?.trim() && plantName?.trim();
     if (!plantTrimmed) {
       return "Plant is required for this activity.";

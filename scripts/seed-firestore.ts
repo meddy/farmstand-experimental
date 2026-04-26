@@ -8,7 +8,9 @@ const ACTIVITIES = [
   "Plant",
   "Transplant",
   "Fertilize",
+  "Amend",
   "Flip",
+  "Pick",
   "Prep for Spring",
   "Install",
 ] as const;
@@ -110,6 +112,17 @@ function parseSlotRow(row: Record<string, string>): admin.firestore.DocumentData
   return doc;
 }
 
+function normalizeSlotIdForDocId(raw: unknown): string {
+  const normalized = String(raw ?? "").trim();
+  if (!normalized) {
+    throw new Error("Slot ID is required and cannot be blank.");
+  }
+  if (normalized.includes("/")) {
+    throw new Error(`Slot ID '${normalized}' cannot contain '/'.`);
+  }
+  return normalized;
+}
+
 async function loadFirebasercProject(): Promise<string | null> {
   try {
     const path = resolve(process.cwd(), ".firebaserc");
@@ -193,6 +206,17 @@ async function main(): Promise<void> {
 
   const plantDocs = plantsRows.map(parsePlantRow);
   const slotDocs = slotsRows.map(parseSlotRow);
+  const seenSlotIds = new Set<string>();
+  for (const slotDoc of slotDocs) {
+    const slotId = normalizeSlotIdForDocId(slotDoc.slotId);
+    if (seenSlotIds.has(slotId)) {
+      throw new Error(
+        `Duplicate slotId '${slotId}' detected in slots CSV. Resolve duplicates before seeding.`
+      );
+    }
+    seenSlotIds.add(slotId);
+    slotDoc.slotId = slotId;
+  }
 
   if (dryRun) {
     console.log(`Would upload ${plantDocs.length} plants, ${slotDocs.length} slots.`);
@@ -221,7 +245,7 @@ async function main(): Promise<void> {
     const batch = db.batch();
     const chunk = slotDocs.slice(i, i + BATCH_SIZE);
     for (const doc of chunk) {
-      const ref = slotsCol.doc();
+      const ref = slotsCol.doc(String(doc.slotId));
       batch.set(ref, doc);
     }
     await batch.commit();

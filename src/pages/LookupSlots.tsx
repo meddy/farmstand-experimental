@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, PencilIcon } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { CreateWorkLogForm } from "@/components/CreateWorkLogForm";
+import { EditSlotForm } from "@/components/EditSlotForm";
 
 const ALL_SPACES = "__all__";
 
@@ -90,7 +91,9 @@ export function LookupSlots() {
       : "asc";
   });
   const [selectedSlotIds, setSelectedSlotIds] = useState<Set<string>>(new Set());
-  const [formOpen, setFormOpen] = useState(false);
+  const [workLogFormOpen, setWorkLogFormOpen] = useState(false);
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   const toggleSlotSelection = useCallback((slotId: string) => {
     setSelectedSlotIds((prev) => {
@@ -117,23 +120,70 @@ export function LookupSlots() {
     () => filteredSlots.filter((s) => selectedSlotIds.has(s.id)),
     [filteredSlots, selectedSlotIds]
   );
+  const visibleSlotIds = useMemo(
+    () => filteredSlots.map((slot) => slot.id),
+    [filteredSlots]
+  );
+  const visibleSelectedCount = useMemo(
+    () => visibleSlotIds.filter((id) => selectedSlotIds.has(id)).length,
+    [visibleSlotIds, selectedSlotIds]
+  );
+  const allVisibleSelected =
+    visibleSlotIds.length > 0 && visibleSelectedCount === visibleSlotIds.length;
+  const someVisibleSelected =
+    visibleSelectedCount > 0 && visibleSelectedCount < visibleSlotIds.length;
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const handleFormSuccess = useCallback(() => {
-    setFormOpen(false);
+    setWorkLogFormOpen(false);
+    setEditFormOpen(false);
     setSelectedSlotIds(new Set());
   }, []);
 
   const handleFormCancel = useCallback(() => {
-    setFormOpen(false);
+    setWorkLogFormOpen(false);
+    setEditFormOpen(false);
   }, []);
 
+  const toggleAllVisibleSlots = useCallback(() => {
+    if (visibleSlotIds.length === 0) return;
+    setSelectedSlotIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleSlotIds.forEach((id) => next.delete(id));
+      } else {
+        visibleSlotIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, [visibleSlotIds, allVisibleSelected]);
+
   useEffect(() => {
-    if (formOpen && selectedSlots.length === 0) {
-      setFormOpen(false);
+    if ((workLogFormOpen || editFormOpen) && selectedSlots.length === 0) {
+      setWorkLogFormOpen(false);
+      setEditFormOpen(false);
     }
-  }, [formOpen, selectedSlots.length]);
+  }, [workLogFormOpen, editFormOpen, selectedSlots.length]);
+
+  useEffect(() => {
+    setSelectedSlotIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visibleIdSet = new Set(visibleSlotIds);
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (visibleIdSet.has(id)) next.add(id);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, [visibleSlotIds]);
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = someVisibleSelected;
+  }, [someVisibleSelected]);
 
   useEffect(() => {
     sessionStorage.setItem(
@@ -148,10 +198,20 @@ export function LookupSlots() {
     );
   }, [spaceType, subspace, plantQuery, sortField, sortDirection]);
 
-  const formContent =
-    formOpen && selectedSlots.length > 0 ? (
+  const workLogFormContent =
+    workLogFormOpen && selectedSlots.length > 0 ? (
       <CreateWorkLogForm
         selectedSlots={selectedSlots}
+        onSuccess={handleFormSuccess}
+        onCancel={handleFormCancel}
+      />
+    ) : null;
+
+  const editFormContent =
+    editFormOpen && selectedSlots.length > 0 ? (
+      <EditSlotForm
+        selectedSlots={selectedSlots}
+        initialPlantMode="leave"
         onSuccess={handleFormSuccess}
         onCancel={handleFormCancel}
       />
@@ -262,15 +322,40 @@ export function LookupSlots() {
           <hr className="my-4 border-border" />
 
           {selectedSlots.length > 0 && (
-            <Button onClick={() => setFormOpen(true)} className="w-full gap-2">
-              <ClipboardList className="size-4" />
-              Create work log ({selectedSlots.length} slot
-              {selectedSlots.length !== 1 ? "s" : ""})
-            </Button>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button onClick={() => setWorkLogFormOpen(true)} className="w-full gap-2">
+                <ClipboardList className="size-4" />
+                Create work log ({selectedSlots.length} slot
+                {selectedSlots.length !== 1 ? "s" : ""})
+              </Button>
+              <Button
+                onClick={() => setEditFormOpen(true)}
+                variant="outline"
+                className="w-full gap-2"
+              >
+                <PencilIcon className="size-4" />
+                Edit slots ({selectedSlots.length})
+              </Button>
+            </div>
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Slots</label>
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-sm font-medium">Slots</label>
+              {showResults && filteredSlots.length > 0 && (
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={toggleAllVisibleSlots}
+                    className="size-4 rounded border-input"
+                    aria-label="Select all shown slots"
+                  />
+                  <span>Select all {filteredSlots.length} shown</span>
+                </label>
+              )}
+            </div>
             <div className="divide-y rounded-md border">
               {!showResults ? (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -355,19 +440,25 @@ export function LookupSlots() {
         </CardContent>
       </Card>
 
-      {formOpen && selectedSlots.length > 0 && isDesktop && (
-        <Dialog open={formOpen} onOpenChange={(open) => !open && handleFormCancel()}>
+      {workLogFormOpen && selectedSlots.length > 0 && isDesktop && (
+        <Dialog
+          open={workLogFormOpen}
+          onOpenChange={(open) => !open && handleFormCancel()}
+        >
           <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create work log</DialogTitle>
             </DialogHeader>
-            {formContent}
+            {workLogFormContent}
           </DialogContent>
         </Dialog>
       )}
 
-      {formOpen && selectedSlots.length > 0 && !isDesktop && (
-        <Sheet open={formOpen} onOpenChange={(open) => !open && handleFormCancel()}>
+      {workLogFormOpen && selectedSlots.length > 0 && !isDesktop && (
+        <Sheet
+          open={workLogFormOpen}
+          onOpenChange={(open) => !open && handleFormCancel()}
+        >
           <SheetContent
             side="bottom"
             className="h-[90dvh] max-h-[90dvh] overflow-y-auto rounded-t-xl"
@@ -375,7 +466,35 @@ export function LookupSlots() {
             <SheetHeader>
               <SheetTitle>Create work log</SheetTitle>
             </SheetHeader>
-            <div className="flex-1 overflow-y-auto pb-safe">{formContent}</div>
+            <div className="flex-1 overflow-y-auto pb-safe">{workLogFormContent}</div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {editFormOpen && selectedSlots.length > 0 && isDesktop && (
+        <Dialog
+          open={editFormOpen}
+          onOpenChange={(open) => !open && handleFormCancel()}
+        >
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit slots</DialogTitle>
+            </DialogHeader>
+            {editFormContent}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {editFormOpen && selectedSlots.length > 0 && !isDesktop && (
+        <Sheet open={editFormOpen} onOpenChange={(open) => !open && handleFormCancel()}>
+          <SheetContent
+            side="bottom"
+            className="h-[90dvh] max-h-[90dvh] overflow-y-auto rounded-t-xl"
+          >
+            <SheetHeader>
+              <SheetTitle>Edit slots</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto pb-safe">{editFormContent}</div>
           </SheetContent>
         </Sheet>
       )}

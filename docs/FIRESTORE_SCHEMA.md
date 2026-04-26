@@ -38,19 +38,20 @@ Collections and document structures used by Farmstand Experimental.
 
 **SlotState:** `null`, `"Growing"`, `"Prepped for Spring"`, `"Fallow"`, `"Pending Installation"`, `"Seed"`
 
-**Activity:** `"Plant"`, `"Transplant"`, `"Fertilize"`, `"Flip"`, `"Pick"`, `"Prep for Spring"`, `"Install"`
+**Activity:** `"Plant"`, `"Transplant"`, `"Fertilize"`, `"Amend"`, `"Flip"`, `"Pick"`, `"Prep for Spring"`, `"Install"`
 
 ---
 
 ## workLogs
 
-| Field         | Type        | Required | Description                               |
-| ------------- | ----------- | -------- | ----------------------------------------- |
-| `plantNumber` | `string`    | Yes      | Plant number for the activity             |
-| `plantName`   | `string`    | Yes      | Plant name for the activity               |
-| `date`        | `Timestamp` | Yes      | When the activity occurred                |
-| `spaceType`   | `SpaceType` | Yes      | `"Bucket"`, `"Tray"`, `"Trough"`, `"Bin"` |
-| `slotId`      | `string`    | Yes      | Slot where the activity was performed     |
-| `activity`    | `Activity`  | Yes      | Type of activity (see above)              |
-| `notes`       | `string`    | No       | Free-form notes                           |
-| `createdAt`   | `Timestamp` | Yes      | When the log was created (server-set)     |
+| Field             | Type             | Required | Description                                                 |
+| ----------------- | ---------------- | -------- | ----------------------------------------------------------- |
+| `plantNumber`     | `string \| null` | No       | Plant number for the activity (nullable for soil-only logs) |
+| `plantBaseNumber` | `string \| null` | No       | Plant number before decimal (e.g. `9382` from `9382.1`)     |
+| `plantName`       | `string \| null` | No       | Plant name for the activity (nullable for soil-only logs)   |
+| `date`            | `Timestamp`      | Yes      | When the activity occurred                                  |
+| `spaceType`       | `SpaceType`      | Yes      | `"Bucket"`, `"Tray"`, `"Trough"`, `"Bin"`                   |
+| `slotId`          | `string`         | Yes      | Slot where the activity was performed                       |
+| `activity`        | `Activity`       | Yes      | Type of activity (see above)                                |
+| `notes`           | `string`         | No       | Free-form notes                                             |
+| `createdAt`       | `Timestamp`      | Yes      | When the log was created (server-set)                       |
