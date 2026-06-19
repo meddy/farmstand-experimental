@@ -26,8 +26,14 @@ export function AppShell() {
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="hidden border-r bg-card md:flex md:w-56 md:flex-col">
-        <div className="flex h-14 items-center border-b px-4">
+        <div className="flex h-14 items-center justify-between border-b px-4">
           <h1 className="font-semibold">Farmstand EXP</h1>
+          <NavLink
+            to="/v2"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            Go to V2
+          </NavLink>
         </div>
         <nav className="flex-1 space-y-1 p-2">
           {navItems.map(({ to, label, icon: Icon }) => (
@@ -51,9 +57,17 @@ export function AppShell() {
 
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-card px-4 md:hidden">
         <h1 className="font-semibold">Farmstand EXP</h1>
-        <Button variant="ghost" size="sm" onClick={signOut}>
-          Sign out
-        </Button>
+        <div className="flex items-center gap-2">
+          <NavLink
+            to="/v2"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            Go to V2
+          </NavLink>
+          <Button variant="ghost" size="sm" onClick={signOut}>
+            Sign out
+          </Button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-auto pb-20 md:pb-0">

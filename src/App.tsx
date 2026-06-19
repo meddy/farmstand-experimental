@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { AppShell } from "@/components/layout/AppShell";
+import { v2Route } from "@/v2/routes";
 
 const LookupSlots = lazy(() =>
   import("@/pages/LookupSlots").then((m) => ({ default: m.LookupSlots }))
@@ -35,6 +36,7 @@ function App() {
         }
       >
         <Routes>
+          {v2Route}
           <Route path="/" element={<AppShell />}>
             <Route index element={<LookupSlots />} />
             <Route path="lookup" element={<LookupSlots />} />

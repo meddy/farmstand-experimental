@@ -27,7 +27,7 @@ A mandatory botanical name. Constant for a given base **2022 NUMBER**. Defaults 
 ### Sowing schedule
 
 **PLANT IT**:
-A sowing schedule entry: a date plus a **sowing method** (`DS`, `ID`, or `PP`). An *upcoming* PLANT IT is a plan held at the base **2022 NUMBER** level (may be blank before planning). When the sowing actually happens, it is assigned to the specific **INSTANCE** sown, becomes a *past* entry on that instance, and the upcoming slot clears. Past entries accumulate as history.
+A sowing schedule entry: a date plus a **sowing method** (`DS`, `ID`, or `PP`). An _upcoming_ PLANT IT is a plan held at the base **2022 NUMBER** level (may be blank before planning). When the sowing actually happens, it is assigned to the specific **INSTANCE** sown, becomes a _past_ entry on that instance, and the upcoming slot clears. Past entries accumulate as history.
 _Avoid_: Plan change, sow date
 
 **DIRECT SOW (DS)**:
@@ -38,6 +38,12 @@ Sowing method: seeds started indoors in flats under controlled germination condi
 
 **PERMANENT PERENNIAL (PP)**:
 Sowing method: planting a permanent perennial — an instance expected to live across multiple years or seasons — in a slot.
+
+### Activity records
+
+**WORK LOG**:
+A dated record of garden activity (planting, transplanting, fertilizing, etc.) tied to a **SLOT** and optionally a plant **INSTANCE**. Past **WORK LOG**s accumulate as history on plants and slots.
+_Avoid_: worklog, log entry
 
 ### Locations
 
@@ -76,7 +82,8 @@ _Avoid_: Tub, Bin, seed bin
 - A base **2022 NUMBER** identifies one plant species; its decimals identify **INSTANCE**s.
 - **COMMON NAME**, **TYPE**, and **SCIENTIFIC NAME** are each constant for a given base **2022 NUMBER**.
 - A **TYPE** can group several **COMMON NAME**s (e.g. `CABBAGE` type covers `COLLARDS` and `CABBAGE`).
-- An *upcoming* **PLANT IT** is planned per base **2022 NUMBER**; once sown it is assigned to one **INSTANCE** and recorded as history.
+- An _upcoming_ **PLANT IT** is planned per base **2022 NUMBER**; once sown it is assigned to one **INSTANCE** and recorded as history.
+- A **WORK LOG** records garden activity on a **SLOT** and optionally a plant **INSTANCE**.
 - A **SPACE** contains one or more **SLOT**s; every planted instance occupies exactly one SLOT.
 - A **VAULT** stores seed packets and seed jars (instances) — both same and different base numbers.
 - The plant catalog has one row per **INSTANCE** (each decimal is its own record).
